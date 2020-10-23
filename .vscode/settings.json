@@ -3,10 +3,10 @@
   "editor.rulers": [80],
   "editor.tabSize": 4,
   "[starlark]": {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": true
   },
   "[c]": {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": true
   },
   "C_Cpp.default.includePath": [
     ".",
@@ -19,5 +19,6 @@
   },
   "files.exclude": {
     "bazel-*": true
-  }
+  },
+  "go.formatTool": "goimports"
 }
