@@ -4,10 +4,11 @@ go_library(
     name = "rectpack",
     srcs = [
         "maxrects.go",
-        "rectpack.go",
         "order.go",
+        "rectpack.go",
     ],
     importpath = "thornmarked/tools/rectpack",
+    visibility = ["//visibility:public"],
 )
 
 go_test(

@@ -13,6 +13,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
+
+	"thornmarked/tools/rectpack"
 )
 
 const (
@@ -201,6 +204,71 @@ func (fn *font) makeGrid() *image.Gray {
 	return im
 }
 
+func (fn *font) pack(texsize image.Point) (*image.Gray, error) {
+	p := rectpack.New()
+	sizes := make([]rectpack.Point, len(fn.glyphs))
+	for i, g := range fn.glyphs {
+		sizes[i] = rectpack.Point{X: g.size[0], Y: g.size[1]}
+	}
+	var bounds rectpack.Point
+	var pos []rectpack.Point
+	var err error
+	if texsize.X != 0 {
+		tsize := rectpack.Point{
+			X: int32(texsize.X),
+			Y: int32(texsize.Y),
+		}
+		count, ipos, err := rectpack.AutoPackMultiple(p, tsize, sizes)
+		if err != nil {
+			return nil, err
+		}
+		if count == 0 {
+			return nil, errors.New("empty texture")
+		}
+		bounds = rectpack.Point{
+			X: tsize.X,
+			Y: tsize.Y * int32(count),
+		}
+		// Stack the bins vertically.
+		pos = make([]rectpack.Point, len(ipos))
+		for i, p := range ipos {
+			pos[i] = rectpack.Point{
+				X: p.Pos.X,
+				Y: p.Pos.Y + tsize.Y*int32(p.Index),
+			}
+		}
+	} else {
+		bounds, pos, err = rectpack.AutoPackSingle(p, sizes)
+		if err != nil {
+			return nil, err
+		}
+		if bounds.X == 0 {
+			return nil, errors.New("empty texture")
+		}
+	}
+	im := image.NewGray(image.Rectangle{
+		Max: image.Point{
+			X: int(bounds.X),
+			Y: int(bounds.Y),
+		},
+	})
+	for i, g := range fn.glyphs {
+		px := int(pos[i].X)
+		py := int(pos[i].Y)
+		draw.Draw(
+			im,
+			image.Rectangle{
+				Min: image.Point{X: px, Y: py},
+				Max: image.Point{X: px + int(g.size[0]), Y: py + int(g.size[1])},
+			},
+			&g.image,
+			image.Point{},
+			draw.Src,
+		)
+	}
+	return im, nil
+}
+
 func getPath(wd, filename string) string {
 	if filename == "" {
 		return ""
@@ -223,40 +291,96 @@ func writeImage(im image.Image, dest string) error {
 	return fp.Close()
 }
 
-func mainE() error {
+type options struct {
+	font    string
+	size    int
+	grid    string
+	texfile string
+	texsize image.Point
+}
+
+func parseSize(s string) (pt image.Point, err error) {
+	i := strings.IndexByte(s, ':')
+	if i == -1 {
+		return pt, errors.New("missing ':'")
+	}
+	x, err := strconv.ParseUint(s[:i], 10, strconv.IntSize-1)
+	if err != nil {
+		return pt, fmt.Errorf("invalid width: %w", err)
+	}
+	y, err := strconv.ParseUint(s[i+1:], 10, strconv.IntSize-1)
+	if err != nil {
+		return pt, fmt.Errorf("invalid height: %w", err)
+	}
+	pt.X = int(x)
+	pt.Y = int(y)
+	return pt, nil
+}
+
+func parseOpts() (o options, err error) {
 	wd := os.Getenv("BUILD_WORKING_DIRECTORY")
 	fontArg := flag.String("font", "", "font to rasterize")
 	sizeArg := flag.Int("size", 0, "size to rasterize font at")
 	gridArg := flag.String("out-grid", "", "grid preview output file")
+	textureArg := flag.String("out-texture", "", "output texture")
+	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
-		return fmt.Errorf("unexpected argument: %q", args[0])
+		return o, fmt.Errorf("unexpected argument: %q", args[0])
 	}
-	fontfile := getPath(wd, *fontArg)
-	if fontfile == "" {
-		return errors.New("missing required flag -font")
+	o.font = getPath(wd, *fontArg)
+	if o.font == "" {
+		return o, errors.New("missing required flag -font")
 	}
-	gridfile := getPath(wd, *gridArg)
+	o.size = *sizeArg
+	if o.size == 0 {
+		return o, errors.New("missing required flag -size")
+	}
+	if o.size < minSize || maxSize < o.size {
+		return o, fmt.Errorf("invalid size %d, must be between %d and %d", o.size, minSize, maxSize)
+	}
+	o.grid = getPath(wd, *gridArg)
+	o.texfile = getPath(wd, *textureArg)
+	if sz := *texsizeArg; sz != "" {
+		if o.texfile == "" {
+			return o, fmt.Errorf("cannot use -texture-size without -out-texture")
+		}
+		pt, err := parseSize(sz)
+		if err != nil {
+			return o, fmt.Errorf("invalid size: %w", err)
+		}
+		if pt.X == 0 || pt.Y == 0 {
+			return o, errors.New("zero size")
+		}
+		o.texsize = pt
+	}
+	return o, nil
+}
 
-	size := *sizeArg
-	if size == 0 {
-		return errors.New("missing required flag -size")
-	}
-	if size < minSize || maxSize < size {
-		return fmt.Errorf("invalid size %d, must be between %d and %d", size, minSize, maxSize)
-	}
-
-	fn, err := rasterizeFont(fontfile, size)
+func mainE() error {
+	opts, err := parseOpts()
 	if err != nil {
 		return err
 	}
-	if gridfile != "" {
+	fn, err := rasterizeFont(opts.font, opts.size)
+	if err != nil {
+		return err
+	}
+	if opts.grid != "" {
 		im := fn.makeGrid()
-		if err := writeImage(im, gridfile); err != nil {
+		if err := writeImage(im, opts.grid); err != nil {
 			return err
 		}
 	}
-	fmt.Println("OK")
+	if opts.texfile != "" {
+		im, err := fn.pack(opts.texsize)
+		if err != nil {
+			return fmt.Errorf("could not pack: %w", err)
+		}
+		if err := writeImage(im, opts.texfile); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
