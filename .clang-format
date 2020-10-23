@@ -1,0 +1,19 @@
+---
+BasedOnStyle: Google
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+DerivePointerAlignment: false
+IncludeBlocks: Preserve
+IncludeCategories:
+  - Regex:    '^".*'
+    Priority: 1
+  - Regex:    '^<.*'
+    Priority: 2
+IndentCaseLabels: false
+IndentWidth: 4
+PointerAlignment: Right
+SpacesBeforeTrailingComments: 1
+Standard: Cpp11

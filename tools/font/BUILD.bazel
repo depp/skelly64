@@ -1,0 +1,14 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//base:copts.bzl", "COPTS")
+
+cc_binary(
+    name = "raster",
+    srcs = [
+        "raster.c",
+    ],
+    copts = COPTS,
+    deps = [
+        "//base:tool",
+        "@freetype",
+    ],
+)

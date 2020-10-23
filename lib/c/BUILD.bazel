@@ -1,0 +1,24 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//base:copts.bzl", "COPTS")
+
+cc_library(
+    name = "defs",
+    hdrs = [
+        "defs.h",
+    ],
+    copts = COPTS,
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "tool",
+    srcs = [
+        "tool.c",
+    ],
+    hdrs = [
+        "tool.h",
+    ],
+    copts = COPTS,
+    visibility = ["//visibility:public"],
+    deps = [":defs"],
+)

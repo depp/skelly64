@@ -1,0 +1,20 @@
+{
+  "editor.detectIndentation": false,
+  "editor.rulers": [80],
+  "editor.tabSize": 4,
+  "[starlark]": {
+    "editor.formatOnSave": true,
+  },
+  "[c]": {
+    "editor.formatOnSave": true,
+  },
+  "C_Cpp.default.includePath": [
+    ".",
+    "sdk/ultra/include",
+    "/usr/include/freetype2"
+  ],
+  "C_Cpp.default.defines": ["_LANGUAGE_C"],
+  "files.associations": {
+    "*.h": "c"
+  }
+}
