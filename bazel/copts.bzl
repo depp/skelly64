@@ -16,9 +16,7 @@ _COPTS_BASE = [
     "-D_DEFAULT_SOURCE",
 ]
 
-# Internal C compilation options. Use this by default for all C targets in the
-# repo.
-COPTS = _COPTS_BASE + [
+_COPTS_WARNING = _COPTS_BASE + [
     "-Wall",
     "-Wextra",
     "-Wpointer-arith",
@@ -29,3 +27,14 @@ COPTS = _COPTS_BASE + [
     "-Winit-self",
     "-Wstrict-prototypes",
 ]
+
+# Internal C compilation options. Use this by default for all C targets in the
+# repo.
+COPTS = (
+    _COPTS_BASE +
+    select({
+        "//base/bazel:warnings_off": [],
+        "//base/bazel:warnings_on": _COPTS_WARNING,
+        "//base/bazel:warnings_error": _COPTS_WARNING + ["-Werror"],
+    })
+)

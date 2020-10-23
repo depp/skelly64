@@ -1,0 +1,20 @@
+config_setting(
+    name = "warnings_off",
+    define_values = {
+        "warnings": "off",
+    },
+)
+
+config_setting(
+    name = "warnings_on",
+    define_values = {
+        "warnings": "yes",
+    },
+)
+
+config_setting(
+    name = "warnings_error",
+    define_values = {
+        "warnings": "error",
+    },
+)
