@@ -130,6 +130,41 @@ func rasterizeFont(filename string, size int) (*font, error) {
 	return &fn, nil
 }
 
+func (fn *font) subset(charset map[uint32]bool, removeNotdef bool) *font {
+	gset := make(map[uint32]bool)
+	for c := range charset {
+		gset[fn.charmap[c]] = true
+	}
+	if removeNotdef {
+		delete(gset, 0)
+	} else {
+		gset[0] = true
+	}
+	gmap := make([]uint32, len(fn.glyphs))
+	var glyphs []*glyph
+	for i, g := range fn.glyphs {
+		if gset[uint32(i)] {
+			gmap[i] = uint32(len(glyphs))
+			glyphs = append(glyphs, g)
+		}
+	}
+	charmap := make(map[uint32]uint32)
+	for c, g := range fn.charmap {
+		if charset[c] {
+			if g < uint32(len(gmap)) {
+				g = gmap[g]
+			} else {
+				g = 0
+			}
+			charmap[c] = g
+		}
+	}
+	return &font{
+		charmap: charmap,
+		glyphs:  glyphs,
+	}
+}
+
 func drawBox(im *image.Gray, sz, x0, y0, x1, y1 int, c uint8) {
 	for y := y0; y < y0+sz; y++ {
 		for x := x0; x < x1; x++ {
@@ -292,11 +327,13 @@ func writeImage(im image.Image, dest string) error {
 }
 
 type options struct {
-	font    string
-	size    int
-	grid    string
-	texfile string
-	texsize image.Point
+	font         string
+	size         int
+	grid         string
+	texfile      string
+	texsize      image.Point
+	charset      map[uint32]bool
+	removeNotdef bool
 }
 
 func parseSize(s string) (pt image.Point, err error) {
@@ -317,6 +354,14 @@ func parseSize(s string) (pt image.Point, err error) {
 	return pt, nil
 }
 
+func parseCP(s string) (uint32, error) {
+	n, err := strconv.ParseUint(s, 16, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid code point %q: %v", s, err)
+	}
+	return uint32(n), nil
+}
+
 func parseOpts() (o options, err error) {
 	wd := os.Getenv("BUILD_WORKING_DIRECTORY")
 	fontArg := flag.String("font", "", "font to rasterize")
@@ -324,6 +369,8 @@ func parseOpts() (o options, err error) {
 	gridArg := flag.String("out-grid", "", "grid preview output file")
 	textureArg := flag.String("out-texture", "", "output texture")
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
+	charsetArg := flag.String("charset", "", "characters to include, a list of hexadecimal code points and code point ranges")
+	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
@@ -354,6 +401,35 @@ func parseOpts() (o options, err error) {
 		}
 		o.texsize = pt
 	}
+	if *charsetArg != "" {
+		o.charset = make(map[uint32]bool)
+		for _, it := range strings.Split(*charsetArg, ",") {
+			i := strings.IndexByte(it, '-')
+			if i == -1 {
+				c, err := parseCP(it)
+				if err != nil {
+					return o, err
+				}
+				o.charset[c] = true
+			} else {
+				c1, err := parseCP(it[:i])
+				if err != nil {
+					return o, err
+				}
+				c2, err := parseCP(it[i+1:])
+				if err != nil {
+					return o, err
+				}
+				if c2 < c1 {
+					return o, fmt.Errorf("invalid range: %q", it)
+				}
+				for c := c1; c <= c2; c++ {
+					o.charset[c] = true
+				}
+			}
+		}
+	}
+	o.removeNotdef = *removeNotdefArg
 	return o, nil
 }
 
@@ -365,6 +441,9 @@ func mainE() error {
 	fn, err := rasterizeFont(opts.font, opts.size)
 	if err != nil {
 		return err
+	}
+	if opts.charset != nil {
+		fn = fn.subset(opts.charset, opts.removeNotdef)
 	}
 	if opts.grid != "" {
 		im := fn.makeGrid()
