@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "rectpack",
+    srcs = [
+        "maxrects.go",
+        "rectpack.go",
+        "order.go",
+    ],
+    importpath = "thornmarked/tools/rectpack",
+)
+
+go_test(
+    name = "pack_test",
+    size = "small",
+    srcs = [
+        "pack_test.go",
+    ],
+    embed = [":rectpack"],
+)
+
+go_binary(
+    name = "demo",
+    srcs = [
+        "demo.go",
+    ],
+    deps = [":rectpack"],
+)
