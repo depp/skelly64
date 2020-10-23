@@ -16,5 +16,8 @@
   "C_Cpp.default.defines": ["_LANGUAGE_C"],
   "files.associations": {
     "*.h": "c"
+  },
+  "files.exclude": {
+    "bazel-*": true
   }
 }
