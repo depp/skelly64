@@ -1,5 +1,6 @@
 {
   "editor.detectIndentation": false,
+  "editor.insertSpaces" true,
   "editor.rulers": [80],
   "editor.tabSize": 4,
   "[starlark]": {
@@ -8,6 +9,13 @@
   "[c]": {
     "editor.formatOnSave": true
   },
+  "[mips]": {
+    "editor.tabSize": 8,
+    "editor.insertSpaces": false
+  },
+  "[json]": {
+    "editor.tabSize": 2,
+  },
   "C_Cpp.default.includePath": [
     ".",
     "sdk/ultra/include",
@@ -15,7 +23,8 @@
   ],
   "C_Cpp.default.defines": ["_LANGUAGE_C"],
   "files.associations": {
-    "*.h": "c"
+    "*.h": "c",
+    "*.s": "mips"
   },
   "files.exclude": {
     "bazel-*": true
