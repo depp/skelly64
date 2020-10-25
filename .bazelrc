@@ -1,5 +1,7 @@
 build --define=warnings=off
 
+build --crosstool_top=//n64:toolchain
+
 build:asan --strip=never
 build:asan --copt=-fsanitize=address
 build:asan --copt=-g

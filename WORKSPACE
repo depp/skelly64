@@ -27,3 +27,7 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_depe
 go_rules_dependencies()
 
 go_register_toolchains()
+
+load("//n64:repo.bzl", "n64_repositories")
+
+n64_repositories(__workspace_dir__)
