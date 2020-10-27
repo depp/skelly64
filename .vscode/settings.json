@@ -17,8 +17,8 @@
     "editor.tabSize": 2,
   },
   "C_Cpp.default.includePath": [
-    ".",
-    "sdk/ultra/include",
+    "${workspaceFolder}",
+    "${workspaceFolder}/sdk/ultra/include",
     "/usr/include/freetype2"
   ],
   "C_Cpp.default.defines": ["_LANGUAGE_C"],
