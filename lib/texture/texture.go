@@ -10,8 +10,90 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
+
+type iformat uint32
+
+const (
+	fUnknown iformat = iota
+	fRGBA
+	fCI
+	fIA
+	fI
+)
+
+var fnames = [...]string{
+	fRGBA: "RGBA",
+	fCI:   "CI",
+	fIA:   "IA",
+	fI:    "I",
+}
+
+func (v iformat) String() (s string) {
+	i := uint32(v)
+	if i < uint32(len(fnames)) {
+		s = fnames[i]
+	}
+	if s == "" {
+		s = strconv.FormatUint(uint64(i), 10)
+	}
+	return
+}
+
+func (v *iformat) Set(s string) error {
+	for i, n := range fnames {
+		if strings.EqualFold(s, n) {
+			*v = iformat(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown format: %q", s)
+}
+
+type isize uint32
+
+const (
+	szUnknown isize = iota
+	sz32
+	sz16
+	sz8
+	sz4
+)
+
+var isizes = [...]uint32{
+	sz32: 32,
+	sz16: 16,
+	sz8:  8,
+	sz4:  4,
+}
+
+func (v isize) String() (s string) {
+	i := uint32(v)
+	if i < uint32(len(isizes)) {
+		sz := isizes[i]
+		if sz != 0 {
+			return strconv.FormatUint(uint64(sz), 10)
+		}
+	}
+	return "isize(" + strconv.FormatUint(uint64(i), 10) + ")"
+}
+
+func (v *isize) Set(s string) error {
+	n, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return err
+	}
+	n32 := uint32(n)
+	for i, x := range isizes {
+		if x == n32 && n32 != 0 {
+			*v = isize(i)
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported size: %d", n)
+}
 
 func readPNG(filename string) (image.Image, error) {
 	ext := filepath.Ext(filename)
@@ -51,7 +133,7 @@ func packRGBA32(im *image.RGBA) []byte {
 	return out
 }
 
-func rga16from32(data []byte) []byte {
+func rgba16from32(data []byte) []byte {
 	out := make([]byte, len(data)/2)
 	for i := 0; i < len(data)/4; i++ {
 		pix := data[i*4 : i*4+4 : i*4+4]
@@ -69,6 +151,10 @@ func rga16from32(data []byte) []byte {
 
 func mainE() error {
 	outFlag := flag.String("output", "", "write output to `file`")
+	ifmt := fRGBA
+	flag.Var(&ifmt, "format", "use image format `fmt` (rgba,ci,ia,i)")
+	isz := sz16
+	flag.Var(&isz, "size", "use pixel size `size` (32,16,8,4)")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
@@ -83,11 +169,27 @@ func mainE() error {
 	}
 	input := args[0]
 
+	fmt.Println("Format:", ifmt, isz)
+
 	inimg, err := readPNG(input)
 	if err != nil {
 		return err
 	}
-	data := rga16from32(packRGBA32(toRGBA(inimg)))
+	var data []byte
+	switch ifmt {
+	case fRGBA:
+		ri := toRGBA(inimg)
+		switch isz {
+		case sz32:
+			data = packRGBA32(ri)
+		case sz16:
+			data = rgba16from32(packRGBA32(ri))
+		default:
+			return fmt.Errorf("size %s is not supported for RGBA images", isz)
+		}
+	default:
+		return fmt.Errorf("image format unimplemented: %s", ifmt)
+	}
 	if err := ioutil.WriteFile(output, data, 0666); err != nil {
 		return err
 	}
