@@ -18,6 +18,7 @@
   },
   "C_Cpp.default.includePath": [
     "${workspaceFolder}",
+    "${workspaceFolder}/bazel-bin",
     "${workspaceFolder}/sdk/ultra/include",
     "/usr/include/freetype2"
   ],
