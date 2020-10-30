@@ -1,9 +1,11 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-go_binary(
+go_library(
     name = "texture",
     srcs = [
+        "format.go",
         "texture.go",
     ],
-    visibility = ["//visibility:public"],
+    importpath = "thornmarked/tools/texture",
+    visibility = ["//tools:__subpackages__"],
 )
