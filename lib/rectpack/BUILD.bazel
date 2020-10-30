@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "rectpack",
@@ -18,12 +18,4 @@ go_test(
         "pack_test.go",
     ],
     embed = [":rectpack"],
-)
-
-go_binary(
-    name = "demo",
-    srcs = [
-        "demo.go",
-    ],
-    deps = [":rectpack"],
 )
