@@ -1,4 +1,4 @@
-def bitmap_font(name, src, size, format, texsize, charset):
+def bitmap_font(name, src, size, format, texsize, charset, visibility):
     native.genrule(
         name = name,
         srcs = [src, charset],
@@ -16,4 +16,5 @@ def bitmap_font(name, src, size, format, texsize, charset):
             "-remove-notdef " +
             "-charset=$(location %s)" % charset
         ),
+        visibility = visibility,
     )

@@ -32,16 +32,21 @@ func makeAssetGlyphs(fn *font) ([]byte, error) {
 	const recSize = 8
 	out := make([]byte, len(fn.glyphs)*recSize)
 	for i, g := range fn.glyphs {
-		copy(out[i*recSize:(i+1)*recSize:(i+1)*recSize], []byte{
-			byte(g.size[0]),
-			byte(g.size[1]),
-			byte(-g.center[0]),
-			byte(-g.center[1]),
-			byte(g.pos[0]),
-			byte(g.pos[1]),
-			byte(g.texindex),
-			byte(g.advance),
-		})
+		rec := out[i*recSize : (i+1)*recSize : (i+1)*recSize]
+		if g.size[0] > 0 && g.size[1] > 0 {
+			copy(rec, []byte{
+				byte(g.size[0]),
+				byte(g.size[1]),
+				byte(g.center[0]),
+				byte(-g.center[1]),
+				byte(g.pos[0]),
+				byte(g.pos[1]),
+				byte(g.texindex),
+				byte(g.advance),
+			})
+		} else {
+			rec[7] = byte(g.advance)
+		}
 	}
 	return out, nil
 }
