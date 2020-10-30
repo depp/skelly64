@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"thornmarked/tools/font/charset"
 	"thornmarked/tools/rectpack"
 )
 
@@ -332,7 +333,7 @@ type options struct {
 	grid         string
 	texfile      string
 	texsize      image.Point
-	charset      map[uint32]bool
+	charset      charset.Set
 	removeNotdef bool
 }
 
@@ -369,7 +370,7 @@ func parseOpts() (o options, err error) {
 	gridArg := flag.String("out-grid", "", "grid preview output file")
 	textureArg := flag.String("out-texture", "", "output texture")
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
-	charsetArg := flag.String("charset", "", "characters to include, a list of hexadecimal code points and code point ranges")
+	charsetArg := flag.String("charset", "", "path to character set file")
 	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
@@ -402,32 +403,11 @@ func parseOpts() (o options, err error) {
 		o.texsize = pt
 	}
 	if *charsetArg != "" {
-		o.charset = make(map[uint32]bool)
-		for _, it := range strings.Split(*charsetArg, ",") {
-			i := strings.IndexByte(it, '-')
-			if i == -1 {
-				c, err := parseCP(it)
-				if err != nil {
-					return o, err
-				}
-				o.charset[c] = true
-			} else {
-				c1, err := parseCP(it[:i])
-				if err != nil {
-					return o, err
-				}
-				c2, err := parseCP(it[i+1:])
-				if err != nil {
-					return o, err
-				}
-				if c2 < c1 {
-					return o, fmt.Errorf("invalid range: %q", it)
-				}
-				for c := c1; c <= c2; c++ {
-					o.charset[c] = true
-				}
-			}
+		cs, err := charset.ReadFile(getPath(wd, *charsetArg))
+		if err != nil {
+			return o, err
 		}
+		o.charset = cs
 	}
 	o.removeNotdef = *removeNotdefArg
 	return o, nil
