@@ -38,7 +38,7 @@ type font struct {
 
 func rasterizeFont(filename string, size int) (*font, error) {
 	cmd := exec.Command(
-		"tools/font/raster",
+		"tools/font/raster/raster",
 		"rasterize",
 		"-font="+filename,
 		"-size="+strconv.Itoa(size),
