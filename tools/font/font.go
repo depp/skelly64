@@ -7,8 +7,10 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +19,7 @@ import (
 
 	"thornmarked/tools/font/charset"
 	"thornmarked/tools/rectpack"
+	"thornmarked/tools/texture"
 )
 
 const (
@@ -29,12 +32,17 @@ type glyph struct {
 	center  [2]int32
 	advance int32
 	name    string
-	image   image.Gray
+	image   image.RGBA
+
+	// From packing
+	pos      [2]int32
+	texindex int
 }
 
 type font struct {
-	charmap map[uint32]uint32
-	glyphs  []*glyph
+	charmap  map[uint32]uint32
+	glyphs   []*glyph
+	textures []*image.RGBA
 }
 
 func rasterizeFont(filename string, size int) (*font, error) {
@@ -112,12 +120,19 @@ func rasterizeFont(filename string, size int) (*font, error) {
 					return nil, fmt.Errorf("glyph data is %d characters, expected %d",
 						len(dfield), size*2)
 				}
-				data := make([]byte, g.size[0]*g.size[1])
-				if _, err := hex.Decode(data, dfield); err != nil {
+				gdata := make([]byte, g.size[0]*g.size[1])
+				if _, err := hex.Decode(gdata, dfield); err != nil {
 					return nil, fmt.Errorf("invalid data field: %v", err)
 				}
-				g.image.Pix = data
-				g.image.Stride = int(g.size[0])
+				rdata := make([]byte, g.size[0]*g.size[1]*4)
+				for i, y := range gdata {
+					rdata[4*i] = y
+					rdata[4*i+1] = y
+					rdata[4*i+2] = y
+					rdata[4*i+3] = y
+				}
+				g.image.Pix = rdata
+				g.image.Stride = int(g.size[0]) * 4
 				g.image.Rect.Max = image.Point{
 					X: int(g.size[0]),
 					Y: int(g.size[1]),
@@ -166,30 +181,30 @@ func (fn *font) subset(charset map[uint32]bool, removeNotdef bool) *font {
 	}
 }
 
-func drawBox(im *image.Gray, sz, x0, y0, x1, y1 int, c uint8) {
+func drawBox(im *image.RGBA, sz, x0, y0, x1, y1 int, c uint8) {
 	for y := y0; y < y0+sz; y++ {
 		for x := x0; x < x1; x++ {
-			im.Pix[im.PixOffset(x, y)] = c
+			im.SetRGBA(x, y, color.RGBA{c, c, c, 0xff})
 		}
 	}
 	for y := y1 - sz; y < y1; y++ {
 		for x := x0; x < x1; x++ {
-			im.Pix[im.PixOffset(x, y)] = c
+			im.SetRGBA(x, y, color.RGBA{c, c, c, 0xff})
 		}
 	}
 	for x := x0; x < x0+sz; x++ {
 		for y := y0 + sz; y < y1-sz; y++ {
-			im.Pix[im.PixOffset(x, y)] = c
+			im.SetRGBA(x, y, color.RGBA{c, c, c, 0xff})
 		}
 	}
 	for x := x1 - sz; x < x1; x++ {
 		for y := y0 + sz; y < y1-sz; y++ {
-			im.Pix[im.PixOffset(x, y)] = c
+			im.SetRGBA(x, y, color.RGBA{c, c, c, 0xff})
 		}
 	}
 }
 
-func (fn *font) makeGrid() *image.Gray {
+func (fn *font) makeGrid() *image.RGBA {
 	const (
 		border      = 1
 		margin      = 2
@@ -212,12 +227,13 @@ func (fn *font) makeGrid() *image.Gray {
 	}
 	cwidth += space
 	cheight += space
-	im := image.NewGray(image.Rectangle{
+	im := image.NewRGBA(image.Rectangle{
 		Max: image.Point{
 			X: cols*cwidth + border,
 			Y: rows*cheight + border,
 		},
 	})
+	draw.Draw(im, im.Rect, image.NewUniform(color.RGBA{0, 0, 0, 0xff}), im.Rect.Min, draw.Src)
 	for i, g := range fn.glyphs {
 		cx := i % cols
 		cy := i / cols
@@ -234,13 +250,13 @@ func (fn *font) makeGrid() *image.Gray {
 			},
 			&g.image,
 			image.Point{},
-			draw.Src,
+			draw.Over,
 		)
 	}
 	return im
 }
 
-func (fn *font) pack(texsize image.Point) (*image.Gray, error) {
+func (fn *font) pack(texsize image.Point) (*image.RGBA, error) {
 	p := rectpack.New()
 	sizes := make([]rectpack.Point, len(fn.glyphs))
 	for i, g := range fn.glyphs {
@@ -272,7 +288,10 @@ func (fn *font) pack(texsize image.Point) (*image.Gray, error) {
 				X: p.Pos.X,
 				Y: p.Pos.Y + tsize.Y*int32(p.Index),
 			}
+			fn.glyphs[i].pos = [2]int32{p.Pos.X, p.Pos.Y}
+			fn.glyphs[i].texindex = p.Index
 		}
+		fn.textures = make([]*image.RGBA, count)
 	} else {
 		bounds, pos, err = rectpack.AutoPackSingle(p, sizes)
 		if err != nil {
@@ -281,8 +300,12 @@ func (fn *font) pack(texsize image.Point) (*image.Gray, error) {
 		if bounds.X == 0 {
 			return nil, errors.New("empty texture")
 		}
+		for i, p := range pos {
+			fn.glyphs[i].pos = [2]int32{p.X, p.Y}
+		}
+		fn.textures = make([]*image.RGBA, 1)
 	}
-	im := image.NewGray(image.Rectangle{
+	im := image.NewRGBA(image.Rectangle{
 		Max: image.Point{
 			X: int(bounds.X),
 			Y: int(bounds.Y),
@@ -301,6 +324,21 @@ func (fn *font) pack(texsize image.Point) (*image.Gray, error) {
 			image.Point{},
 			draw.Src,
 		)
+	}
+	if texsize.X != 0 {
+		for i := range fn.textures {
+			fn.textures[i] = im.SubImage(image.Rectangle{
+				Min: image.Point{
+					Y: i * int(texsize.Y),
+				},
+				Max: image.Point{
+					X: int(texsize.X),
+					Y: (i + 1) * int(texsize.Y),
+				},
+			}).(*image.RGBA)
+		}
+	} else {
+		fn.textures[0] = im
 	}
 	return im, nil
 }
@@ -332,7 +370,9 @@ type options struct {
 	size         int
 	grid         string
 	texfile      string
+	datafile     string
 	texsize      image.Point
+	texfmt       texture.SizedFormat
 	charset      charset.Set
 	removeNotdef bool
 }
@@ -372,6 +412,8 @@ func parseOpts() (o options, err error) {
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
 	charsetArg := flag.String("charset", "", "path to character set file")
 	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
+	outDataArg := flag.String("out-data", "", "output font data file")
+	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
@@ -389,9 +431,13 @@ func parseOpts() (o options, err error) {
 	}
 	o.grid = getPath(wd, *gridArg)
 	o.texfile = getPath(wd, *textureArg)
+	o.datafile = getPath(wd, *outDataArg)
+	if o.datafile != "" && o.texfmt.Format == texture.UnknownFormat {
+		return o, errors.New("the -format flag must be used when using -out-data")
+	}
 	if sz := *texsizeArg; sz != "" {
-		if o.texfile == "" {
-			return o, fmt.Errorf("cannot use -texture-size without -out-texture")
+		if o.texfile == "" && o.datafile == "" {
+			return o, fmt.Errorf("cannot use -texture-size without -out-texture or -out-data")
 		}
 		pt, err := parseSize(sz)
 		if err != nil {
@@ -410,6 +456,7 @@ func parseOpts() (o options, err error) {
 		o.charset = cs
 	}
 	o.removeNotdef = *removeNotdefArg
+
 	return o, nil
 }
 
@@ -425,19 +472,37 @@ func mainE() error {
 	if opts.charset != nil {
 		fn = fn.subset(opts.charset, opts.removeNotdef)
 	}
+	if opts.texfmt.Format != texture.UnknownFormat {
+		for _, g := range fn.glyphs {
+			if err := texture.ToSizedFormat(opts.texfmt, &g.image); err != nil {
+				return err
+			}
+		}
+	}
 	if opts.grid != "" {
 		im := fn.makeGrid()
 		if err := writeImage(im, opts.grid); err != nil {
 			return err
 		}
 	}
-	if opts.texfile != "" {
+	if opts.texfile != "" || opts.datafile != "" {
 		im, err := fn.pack(opts.texsize)
 		if err != nil {
 			return fmt.Errorf("could not pack: %w", err)
 		}
-		if err := writeImage(im, opts.texfile); err != nil {
-			return err
+		if opts.texfile != "" {
+			if err := writeImage(im, opts.texfile); err != nil {
+				return err
+			}
+		}
+		if opts.datafile != "" {
+			data, err := makeAsset(fn, opts.texfmt)
+			if err != nil {
+				return err
+			}
+			if err := ioutil.WriteFile(opts.datafile, data, 0666); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

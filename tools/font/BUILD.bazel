@@ -3,10 +3,13 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary")
 go_binary(
     name = "font",
     srcs = [
+        "asset.go",
         "font.go",
     ],
     data = ["//tools/font/raster"],
     deps = [
+        "//tools/font/charset",
         "//tools/rectpack",
+        "//tools/texture",
     ],
 )
