@@ -1,3 +1,5 @@
+package(default_visibility = ["//visibility:public"])
+
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//base:copts.bzl", "COPTS")
 
@@ -7,7 +9,17 @@ cc_library(
         "defs.h",
     ],
     copts = COPTS,
-    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "random",
+    srcs = [
+        "random.c",
+    ],
+    hdrs = [
+        "random.h",
+    ],
+    copts = COPTS,
 )
 
 cc_library(
@@ -19,6 +31,5 @@ cc_library(
         "tool.h",
     ],
     copts = COPTS,
-    visibility = ["//visibility:public"],
     deps = [":defs"],
 )
