@@ -8,7 +8,7 @@ config_setting(
 config_setting(
     name = "warnings_on",
     define_values = {
-        "warnings": "yes",
+        "warnings": "on",
     },
 )
 
