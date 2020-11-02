@@ -412,7 +412,7 @@ static int cmd_rasterize(int argc, char **argv) {
             size = 16;
             fprintf(stderr, "Default font size: %d\n", size);
         } else {
-            fprintf(stderr, "Automitic font size: %d\n", size);
+            fprintf(stderr, "Automatic font size: %d\n", size);
         }
     }
     err = FT_Set_Char_Size(face, size << 6, size << 6, 72, 72);
@@ -449,6 +449,12 @@ static int cmd_rasterize(int argc, char **argv) {
         out = fopen(arg_output, "w");
         if (out == NULL)
             die_errno(errno, "could not open output '%s'", arg_output);
+    }
+    // Dump font metrics.
+    {
+        FT_Size_Metrics *m = &face->size->metrics;
+        xprintf(out, "metrics %ld %ld %ld\n", (m->ascender + 32) >> 6,
+                (m->descender + 2) >> 6, (m->height + 32) >> 6);
     }
     // Dump character map.
     {

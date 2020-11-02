@@ -4,6 +4,7 @@ go_binary(
     name = "font",
     srcs = [
         "asset.go",
+        "fallback.go",
         "font.go",
     ],
     data = ["//tools/font/raster"],

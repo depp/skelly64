@@ -39,7 +39,14 @@ type glyph struct {
 	texindex int
 }
 
+type metrics struct {
+	ascender  int32
+	descender int32
+	height    int32
+}
+
 type font struct {
+	metrics  metrics
 	charmap  map[uint32]uint32
 	glyphs   []*glyph
 	textures []*image.RGBA
@@ -82,6 +89,23 @@ func rasterizeFont(rasterTool, filename string, size int) (*font, error) {
 		rtype := fields[0]
 		fields = fields[1:]
 		switch string(rtype) {
+		case "metrics":
+			if len(fields) != 3 {
+				return nil, fmt.Errorf("metrics has %d fields, expect %d", len(fields), 3)
+			}
+			var val [3]int32
+			for i, f := range fields {
+				x, err := strconv.ParseInt(string(f), 10, 32)
+				if err != nil {
+					return nil, fmt.Errorf("invalid metric: %w", err)
+				}
+				val[i] = int32(x)
+			}
+			fn.metrics = metrics{
+				ascender:  val[0],
+				descender: val[1],
+				height:    val[2],
+			}
 		case "char":
 			if len(fields) != 2 {
 				return nil, fmt.Errorf("char has %d fields, expect %d", len(fields), 2)
@@ -379,6 +403,8 @@ type options struct {
 	charset      charset.Set
 	removeNotdef bool
 	rasterTool   string
+	mono         bool
+	fallbackfile string
 }
 
 func parseSize(s string) (pt image.Point, err error) {
@@ -419,6 +445,8 @@ func parseOpts() (o options, err error) {
 	outDataArg := flag.String("out-data", "", "output font data file")
 	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
 	flag.StringVar(&o.rasterTool, "tool-raster", "", "path to raster tool (needed for genrule)")
+	flag.BoolVar(&o.mono, "mono", false, "render monochrome (1-bit, instead of grayscale)")
+	outFallbackArg := flag.String("out-fallback", "", "output for fallback font data")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
@@ -461,6 +489,7 @@ func parseOpts() (o options, err error) {
 		o.charset = cs
 	}
 	o.removeNotdef = *removeNotdefArg
+	o.fallbackfile = getPath(wd, *outFallbackArg)
 
 	return o, nil
 }
@@ -487,6 +516,15 @@ func mainE() error {
 	if opts.grid != "" {
 		im := fn.makeGrid()
 		if err := writeImage(im, opts.grid); err != nil {
+			return err
+		}
+	}
+	if opts.fallbackfile != "" {
+		data, err := fn.makeFallback()
+		if err != nil {
+			return err
+		}
+		if err := ioutil.WriteFile(opts.fallbackfile, data, 066); err != nil {
 			return err
 		}
 	}
