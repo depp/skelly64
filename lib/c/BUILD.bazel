@@ -23,6 +23,24 @@ cc_library(
 )
 
 cc_library(
+    name = "base",
+    srcs = [
+        "memcmp.c",
+        "memcpy.c",
+        "memmove.c",
+        "memset.c",
+        "strlen.c",
+    ],
+    hdrs = [
+        "base.h",
+    ],
+    copts = COPTS,
+    deps = [
+        ":defs",
+    ],
+)
+
+cc_library(
     name = "tool",
     srcs = [
         "tool.c",
