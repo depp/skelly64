@@ -36,8 +36,11 @@ cc_library(
     ] + select({
         "//n64:os": [
             "console_n64.c",
+            "fatal_n64.c",
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "fatal_pc.c",
+        ],
     }),
     hdrs = [
         "base.h",
