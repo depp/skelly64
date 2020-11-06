@@ -78,6 +78,7 @@ func (fn *font) makeFallback() ([]byte, error) {
 	fmt.Fprintf(&buf, "    FONT_WIDTH = %d,\n", sx)
 	fmt.Fprintf(&buf, "    FONT_HEIGHT = %d,\n", sy)
 	buf.WriteString("};\n")
+	buf.WriteString("#if INCLUDE_FONT_DATA\n")
 	fmt.Fprintf(&buf, "static const %s FONT_DATA[FONT_HEIGHT * FONT_NCHARS] = {\n", atype)
 	for i := int32(0); i < count; i++ {
 		sep := "    "
@@ -88,5 +89,6 @@ func (fn *font) makeFallback() ([]byte, error) {
 		buf.WriteByte('\n')
 	}
 	buf.WriteString("};\n")
+	buf.WriteString("#endif\n")
 	return buf.Bytes(), nil
 }
