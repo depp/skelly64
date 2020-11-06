@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//base:copts.bzl", "COPTS")
 
 cc_library(
@@ -25,19 +25,37 @@ cc_library(
 cc_library(
     name = "base",
     srcs = [
+        "console.c",
+        "console_global.c",
+        "console_internal.h",
         "memcmp.c",
         "memcpy.c",
         "memmove.c",
         "memset.c",
         "strlen.c",
-    ],
+    ] + select({
+        "//n64:os": [
+            "console_n64.c",
+        ],
+        "//conditions:default": [],
+    }),
     hdrs = [
         "base.h",
-    ],
+        "console.h",
+    ] + select({
+        "//n64:os": [
+            "console_n64.h",
+        ],
+        "//conditions:default": [],
+    }),
     copts = COPTS,
     deps = [
         ":defs",
-    ],
+        "//assets/fonts/terminus:ter-u12n",
+    ] + select({
+        "//n64:os": ["//n64:libultra"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(
@@ -50,4 +68,19 @@ cc_library(
     ],
     copts = COPTS,
     deps = [":defs"],
+)
+
+cc_test(
+    name = "console_test",
+    size = "small",
+    srcs = [
+        "console_internal.h",
+        "console_test.c",
+    ],
+    copts = COPTS,
+    visibility = ["//visibility:private"],
+    deps = [
+        ":base",
+        "//base/testlib",
+    ],
 )
