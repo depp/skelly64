@@ -28,16 +28,16 @@ cc_library(
         "console.c",
         "console_global.c",
         "console_internal.h",
-        "memcmp.c",
-        "memcpy.c",
-        "memmove.c",
-        "memset.c",
-        "strlen.c",
     ] + select({
         "//n64:os": [
             "console_n64.c",
             "fatal_n64.c",
+            "memcmp.c",
+            "memcpy.c",
+            "memmove.c",
             "memory_n64.c",
+            "memset.c",
+            "strlen.c",
         ],
         "//conditions:default": [
             "fatal_pc.c",
