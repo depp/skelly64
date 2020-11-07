@@ -28,6 +28,7 @@ cc_library(
         "console.c",
         "console_global.c",
         "console_internal.h",
+        "fatal.c",
     ] + select({
         "//n64:os": [
             "console_n64.c",
