@@ -26,6 +26,7 @@ _COPTS_WARNING = _COPTS_BASE + [
     "-Werror=implicit-function-declaration",
     "-Winit-self",
     "-Wstrict-prototypes",
+    "-Wno-format-zero-length",
 ]
 
 # Internal C compilation options. Use this by default for all C targets in the
