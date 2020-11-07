@@ -37,9 +37,11 @@ cc_library(
         "//n64:os": [
             "console_n64.c",
             "fatal_n64.c",
+            "memory_n64.c",
         ],
         "//conditions:default": [
             "fatal_pc.c",
+            "memory_pc.c",
         ],
     }),
     hdrs = [
