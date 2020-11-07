@@ -64,6 +64,20 @@ cc_library(
 )
 
 cc_library(
+    name = "scheduler",
+    srcs = [
+        "scheduler.c",
+    ],
+    hdrs = [
+        "scheduler.h",
+    ],
+    copts = COPTS,
+    deps = [
+        ":base",
+    ],
+)
+
+cc_library(
     name = "tool",
     srcs = [
         "tool.c",
