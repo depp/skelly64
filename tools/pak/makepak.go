@@ -159,21 +159,21 @@ func writeData(filename string, mn *manifest) error {
 		data[i] = dinfo{data: odata}
 	}
 	const maxSize = 128 * 1024 * 1024
-	var pos int
 	const hsz = 8
 	header := make([]byte, 8*count)
+	pos := len(header)
 	for i, d := range data {
 		h := header[i*hsz : (i+1)*hsz : (i+1)*hsz]
 		binary.BigEndian.PutUint32(h[0:4], uint32(pos))
 		binary.BigEndian.PutUint32(h[4:8], uint32(len(d.data)))
-		data[i].pos = pos + len(header)
+		data[i].pos = pos
 		pos += len(d.data)
 		pos = (pos + 1) &^ 1
 		if pos > maxSize {
 			return fmt.Errorf("data too large: %d bytes", pos)
 		}
 	}
-	adata := make([]byte, len(header)+pos)
+	adata := make([]byte, pos)
 	copy(adata, header)
 	for _, d := range data {
 		copy(adata[d.pos:], d.data)
