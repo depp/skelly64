@@ -11,6 +11,7 @@ go_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//tools/font/charset",
+        "//tools/getpath",
         "//tools/rectpack",
         "//tools/texture",
     ],

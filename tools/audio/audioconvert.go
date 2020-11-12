@@ -9,17 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+
+	"thornmarked/tools/getpath"
 )
 
-func getPath(wd, filename string) string {
-	if filename != "" && wd != "" && !filepath.IsAbs(filename) {
-		return filepath.Join(wd, filename)
-	}
-	return filename
-}
-
 func mainE() error {
-	wd := os.Getenv("BUILD_WORKING_DIRECTORY")
 	// Parse flags.
 	inFlag := flag.String("input", "", "input audio file")
 	outFlag := flag.String("output", "", "output asset")
@@ -28,11 +22,11 @@ func mainE() error {
 	if args := flag.Args(); len(args) > 0 {
 		return fmt.Errorf("unexpected argument: %q", args[0])
 	}
-	inpath := getPath(wd, *inFlag)
+	inpath := getpath.GetPath(*inFlag)
 	if inpath == "" {
 		return errors.New("missing -input flag")
 	}
-	outpath := getPath(wd, *outFlag)
+	outpath := getpath.GetPath(*outFlag)
 	if outpath == "" {
 		return errors.New("missing -output flag")
 	}

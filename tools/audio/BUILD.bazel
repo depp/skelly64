@@ -6,4 +6,7 @@ go_binary(
         "audioconvert.go",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//tools/getpath",
+    ],
 )

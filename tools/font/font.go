@@ -13,11 +13,11 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"thornmarked/tools/font/charset"
+	"thornmarked/tools/getpath"
 	"thornmarked/tools/rectpack"
 	"thornmarked/tools/texture"
 )
@@ -370,16 +370,6 @@ func (fn *font) pack(texsize image.Point) (*image.RGBA, error) {
 	return im, nil
 }
 
-func getPath(wd, filename string) string {
-	if filename == "" {
-		return ""
-	}
-	if !filepath.IsAbs(filename) && wd != "" {
-		return filepath.Join(wd, filename)
-	}
-	return filename
-}
-
 func writeImage(im image.Image, dest string) error {
 	fp, err := os.Create(dest)
 	if err != nil {
@@ -434,7 +424,6 @@ func parseCP(s string) (uint32, error) {
 }
 
 func parseOpts() (o options, err error) {
-	wd := os.Getenv("BUILD_WORKING_DIRECTORY")
 	fontArg := flag.String("font", "", "font to rasterize")
 	sizeArg := flag.Int("size", 0, "size to rasterize font at")
 	gridArg := flag.String("out-grid", "", "grid preview output file")
@@ -451,7 +440,7 @@ func parseOpts() (o options, err error) {
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
 	}
-	o.font = getPath(wd, *fontArg)
+	o.font = getpath.GetPath(*fontArg)
 	if o.font == "" {
 		return o, errors.New("missing required flag -font")
 	}
@@ -462,9 +451,9 @@ func parseOpts() (o options, err error) {
 	if o.size < minSize || maxSize < o.size {
 		return o, fmt.Errorf("invalid size %d, must be between %d and %d", o.size, minSize, maxSize)
 	}
-	o.grid = getPath(wd, *gridArg)
-	o.texfile = getPath(wd, *textureArg)
-	o.datafile = getPath(wd, *outDataArg)
+	o.grid = getpath.GetPath(*gridArg)
+	o.texfile = getpath.GetPath(*textureArg)
+	o.datafile = getpath.GetPath(*outDataArg)
 	if o.datafile != "" && o.texfmt.Format == texture.UnknownFormat {
 		return o, errors.New("the -format flag must be used when using -out-data")
 	}
@@ -482,14 +471,14 @@ func parseOpts() (o options, err error) {
 		o.texsize = pt
 	}
 	if *charsetArg != "" {
-		cs, err := charset.ReadFile(getPath(wd, *charsetArg))
+		cs, err := charset.ReadFile(getpath.GetPath(*charsetArg))
 		if err != nil {
 			return o, err
 		}
 		o.charset = cs
 	}
 	o.removeNotdef = *removeNotdefArg
-	o.fallbackfile = getPath(wd, *outFallbackArg)
+	o.fallbackfile = getpath.GetPath(*outFallbackArg)
 
 	return o, nil
 }
