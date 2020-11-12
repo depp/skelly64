@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-noreturn void die(const char *fmt, ...) {
-    fputs("Error: ", stderr);
+noreturn void die_(const char *file, int line, const char *fmt, ...) {
+    fprintf(stderr, "Error: %s:%d: ", file, line);
     va_list ap;
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
@@ -15,8 +15,9 @@ noreturn void die(const char *fmt, ...) {
     exit(1);
 }
 
-noreturn void die_errno(int err, const char *fmt, ...) {
-    fputs("Error: ", stderr);
+noreturn void die_errno_(const char *file, int line, int err, const char *fmt,
+                         ...) {
+    fprintf(stderr, "Error: %s:%d: ", file, line);
     va_list(ap);
     va_start(ap, fmt);
     vfprintf(stderr, fmt, ap);
