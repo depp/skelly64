@@ -82,6 +82,9 @@ cc_library(
     name = "tool",
     srcs = [
         "die.c",
+        "swap16.c",
+        "swap16arr.c",
+        "swap32.c",
         "xmalloc.c",
     ],
     hdrs = [
