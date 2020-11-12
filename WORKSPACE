@@ -28,10 +28,6 @@ go_rules_dependencies()
 
 go_register_toolchains()
 
-load("//n64:repo.bzl", "n64_repositories")
-
-n64_repositories(__workspace_dir__)
-
 register_toolchains(
     "//n64:cc-toolchain-n64",
 )
