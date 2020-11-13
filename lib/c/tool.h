@@ -37,3 +37,8 @@ inline uint32_t swap32(uint32_t x) {
 }
 
 void swap16arr(int16_t *arr, size_t n);
+
+// Pack two 16-bit values into a 32-bit value.
+inline uint32_t pack32(uint16_t hi, uint16_t lo) {
+    return ((uint32_t)hi << 16) | lo;
+}
