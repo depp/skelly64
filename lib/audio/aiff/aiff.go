@@ -22,8 +22,12 @@ func (a *AIFF) IsCompressed() bool {
 
 // A Chunk is a piece of data in an AIFF file.
 type Chunk interface {
-	ParseChunk(data []byte, compressed bool) error
 	ChunkData(compressed bool) (id [4]byte, data []byte, err error)
+}
+
+type parsableChunk interface {
+	Chunk
+	parseChunk(data []byte, compressed bool) error
 }
 
 // A RawChunk is a raw chunk which has not been decoded or interpreted.
@@ -32,8 +36,8 @@ type RawChunk struct {
 	Data []byte
 }
 
-// ParseChunk implements the Chunk interface.
-func (c *RawChunk) ParseChunk(data []byte, _ bool) error {
+// parseChunk implements the Chunk interface.
+func (c *RawChunk) parseChunk(data []byte, _ bool) error {
 	d := make([]byte, len(data))
 	copy(d, data)
 	c.Data = d
@@ -57,8 +61,8 @@ type Common struct {
 	CompressionName string
 }
 
-// ParseChunk implements the Chunk interface.
-func (c *Common) ParseChunk(data []byte, compressed bool) error {
+// parseChunk implements the Chunk interface.
+func (c *Common) parseChunk(data []byte, compressed bool) error {
 	if compressed {
 		if len(data) < 23 {
 			return fmt.Errorf("invalid common chunk: len = %d, should be at least 23", len(data))
@@ -118,8 +122,8 @@ type FormatVersion struct {
 	Timestamp uint32
 }
 
-// ParseChunk implements the Chunk interface.
-func (c *FormatVersion) ParseChunk(data []byte, compressed bool) error {
+// parseChunk implements the Chunk interface.
+func (c *FormatVersion) parseChunk(data []byte, compressed bool) error {
 	if !compressed {
 		return errors.New("unexpected FVER in uncompressed file")
 	}
@@ -143,13 +147,20 @@ func (c *FormatVersion) ChunkData(compressed bool) (id [4]byte, data []byte, err
 
 // A SoundData is the SSND chunk in an AIFF file.
 type SoundData struct {
-	Data []byte
+	Offset    uint32
+	BlockSize uint32
+	Data      []byte
 }
 
-// ParseChunk implements the Chunk interface.
-func (c *SoundData) ParseChunk(data []byte, _ bool) error {
-	d := make([]byte, len(data))
-	copy(d, data)
+// parseChunk implements the Chunk interface.
+func (c *SoundData) parseChunk(data []byte, _ bool) error {
+	if len(data) < 8 {
+		return errors.New("sound data chunk too short")
+	}
+	c.Offset = binary.BigEndian.Uint32(data[:4])
+	c.BlockSize = binary.BigEndian.Uint32(data[4:8])
+	d := make([]byte, len(data)-8)
+	copy(d, data[8:])
 	c.Data = d
 	return nil
 }
@@ -157,8 +168,126 @@ func (c *SoundData) ParseChunk(data []byte, _ bool) error {
 // ChunkData implements the Chunk interface.
 func (c *SoundData) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
 	copy(id[:], "SSND")
-	data = c.Data
+	data = make([]byte, len(c.Data)+8)
+	binary.BigEndian.PutUint32(data[0:4], c.Offset)
+	binary.BigEndian.PutUint32(data[4:8], c.BlockSize)
+	copy(data[8:], c.Data)
 	return
+}
+
+// A ApplicationData is the APPL chunk in an AIFF file.
+type ApplicationData struct {
+	Signature [4]byte
+	Data      []byte
+}
+
+// ChunkData implements the Chunk interface.
+func (c *ApplicationData) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+	copy(id[:], "APPL")
+	data = make([]byte, 4+len(c.Data))
+	copy(data, c.Signature[:])
+	copy(data[4:], c.Data)
+	return
+}
+
+type applChunk interface {
+	Chunk
+	parseAPPL(data []byte) error
+}
+
+func (c *ApplicationData) parseAPPL(data []byte) (Chunk, error) {
+	if len(data) < 4 {
+		return nil, errors.New("APPL chunk too short")
+	}
+	copy(c.Signature[:], data)
+	d := make([]byte, len(data)-4)
+	copy(d, data[4:])
+	c.Data = d
+	if string(c.Signature[:]) != "stoc" {
+		return c, nil
+	}
+	if len(d) == 0 {
+		return nil, errors.New("APPL chunk missing string")
+	}
+	n := int(d[0])
+	d = d[1:]
+	if n > len(d) {
+		return nil, errors.New("APPL chunk missing string")
+	}
+	s := string(d[:n])
+	d = d[n:]
+	var ck applChunk
+	switch s {
+	case "VADPCMCODES":
+		ck = new(VADPCMCodes)
+	default:
+		return c, nil
+	}
+	if err := ck.parseAPPL(d); err != nil {
+		return nil, err
+	}
+	return ck, nil
+}
+
+// A VADPCMCodes contains the codebook for a VADPCM-compressed file.
+type VADPCMCodes struct {
+	Version    int
+	Order      int
+	NumEntries int
+	Table      []int16
+}
+
+const vadpcmVectorsize = 8
+
+// ChunkData implements the Chunk interface.
+func (c *VADPCMCodes) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+	tsize := c.Order * c.NumEntries * vadpcmVectorsize
+	if tsize != len(c.Table) {
+		return id, data, fmt.Errorf("incorrect VADPCM table size: table has size %d, should be %d", len(c.Table), tsize)
+	}
+	data = make([]byte, 4+12+6+2*tsize)
+	copy(data[0:4], "stoc")
+	data[4] = 11
+	copy(data[5:16], "VADPCMCODES")
+	binary.BigEndian.PutUint16(data[16:18], uint16(c.Version))
+	binary.BigEndian.PutUint16(data[18:20], uint16(c.Order))
+	binary.BigEndian.PutUint16(data[20:22], uint16(c.NumEntries))
+	rem := data[22:]
+	for _, x := range c.Table {
+		binary.BigEndian.PutUint16(rem[:2], uint16(x))
+		rem = rem[2:]
+	}
+	if len(rem) != 0 {
+		panic("out of sync with table")
+	}
+	copy(id[:], "APPL")
+	return
+}
+
+func (c *VADPCMCodes) parseAPPL(data []byte) error {
+	if len(data) < 6 {
+		return errors.New("VADPCMCodes too short")
+	}
+	c.Version = int(binary.BigEndian.Uint16(data[0:2]))
+	c.Order = int(binary.BigEndian.Uint16(data[2:4]))
+	c.NumEntries = int(binary.BigEndian.Uint16(data[4:6]))
+	if c.Order < 1 || 16 < c.Order {
+		return fmt.Errorf("order out of range: %d", c.Order)
+	}
+	if c.NumEntries < 1 || 1024 < c.NumEntries {
+		return fmt.Errorf("num entries out of range: %d", c.NumEntries)
+	}
+	data = data[6:]
+	tsize := c.Order * c.NumEntries * vadpcmVectorsize
+	if len(data) != tsize*2 {
+		return fmt.Errorf("table has %d bytes, expected %d", len(data), tsize*2)
+	}
+	table := make([]int16, tsize)
+	for i := range table {
+		table[i] = int16(binary.BigEndian.Uint16(data[i*2 : i*2+2]))
+	}
+	c.Table = table
+	return nil
 }
 
 var errUnexpectedEOF = errors.New("unexpected end of file in AIFF data")
@@ -206,7 +335,7 @@ func Parse(data []byte) (*AIFF, error) {
 			}
 			rest = rest[1:]
 		}
-		var ck Chunk
+		var ck parsableChunk
 		switch string(ch[:4]) {
 		case "COMM":
 			if hasCommon {
@@ -227,12 +356,20 @@ func Parse(data []byte) (*AIFF, error) {
 			d := new(SoundData)
 			a.Data = d
 			ck = d
+		case "APPL":
+			d := new(ApplicationData)
+			ck, err := d.parseAPPL(cdata)
+			if err != nil {
+				return nil, fmt.Errorf("could not parse %q chunk: %w", ch[:4], err)
+			}
+			chunks = append(chunks, ck)
+			continue
 		default:
 			r := new(RawChunk)
 			copy(r.ID[:], ch[:4])
 			ck = r
 		}
-		if err := ck.ParseChunk(cdata, compressed); err != nil {
+		if err := ck.parseChunk(cdata, compressed); err != nil {
 			return nil, fmt.Errorf("could not parse %q chunk: %w", ch[:4], err)
 		}
 		chunks = append(chunks, ck)
@@ -240,9 +377,9 @@ func Parse(data []byte) (*AIFF, error) {
 	if !hasCommon {
 		return nil, errors.New("missing common chunk")
 	}
-	if compressed && !hasFVer {
-		return nil, errors.New("missing FVER chunk")
-	}
+	// if compressed && !hasFVer {
+	// 	return nil, errors.New("missing FVER chunk")
+	// }
 	if a.Data == nil {
 		return nil, errors.New("missign data chunk")
 	}

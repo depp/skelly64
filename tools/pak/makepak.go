@@ -15,13 +15,68 @@ import (
 	"strings"
 	"text/template"
 	"unicode/utf8"
+
+	"thornmarked/tools/audio"
 )
 
-var jobsFlag int
+type stringArrayValue struct {
+	value   *[]string
+	changed bool
+}
+
+func (v *stringArrayValue) String() string {
+	return strings.Join(*v.value, ",")
+}
+
+func (v *stringArrayValue) Set(s string) error {
+	if v.changed {
+		*v.value = append(*v.value, s)
+	} else {
+		*v.value = []string{s}
+		v.changed = true
+	}
+	return nil
+}
+
+func (v *stringArrayValue) Get() interface{} {
+	return *v.value
+}
+
+// =============================================================================
+
+type datatype uint32
+
+const (
+	typeUnknown datatype = iota
+	typeData
+	typeTrack
+)
+
+var types = [...]string{
+	typeData:  "data",
+	typeTrack: "track",
+}
+
+var typeSlotCount = [...]int{
+	typeData:  1,
+	typeTrack: 2,
+}
+
+func parseType(s string) (t datatype, err error) {
+	if s != "" {
+		for i, ts := range types {
+			if strings.EqualFold(s, ts) {
+				return datatype(i), nil
+			}
+		}
+	}
+	return typeUnknown, fmt.Errorf("unknown data type: %q", s)
+}
 
 var validIdent = regexp.MustCompile("^[A-Za-z][A-Za-z0-9_]*$")
 
 type entry struct {
+	dtype    datatype
 	Ident    string
 	Index    int
 	filename string
@@ -44,18 +99,26 @@ func parseManifestLine(line []byte) (*entry, error) {
 	if len(fields) == 0 {
 		return nil, nil
 	}
-	if len(fields) != 2 {
-		return nil, fmt.Errorf("got %d fields, expected exactly 2", len(fields))
+	if len(fields) != 3 {
+		return nil, fmt.Errorf("got %d fields, expected exactly 3", len(fields))
 	}
-	ident := string(fields[0])
+	dt, err := parseType(string(fields[0]))
+	if err != nil {
+		return nil, err
+	}
+	ident := string(fields[1])
 	if !validIdent.MatchString(ident) {
 		return nil, fmt.Errorf("invalid identifier: %q", ident)
 	}
-	filename := path.Clean(string(fields[1]))
+	filename := path.Clean(string(fields[2]))
 	if path.IsAbs(filename) {
 		return nil, errors.New("path is absolute")
 	}
-	return &entry{Ident: ident, filename: filename}, nil
+	return &entry{
+		dtype:    dt,
+		Ident:    ident,
+		filename: filename,
+	}, nil
 }
 
 func readManifest(filename string) (*manifest, error) {
@@ -66,51 +129,45 @@ func readManifest(filename string) (*manifest, error) {
 	}
 	defer fp.Close()
 	sc := bufio.NewScanner(fp)
+	size := 1
 	for lineno := 1; sc.Scan(); lineno++ {
 		e, err := parseManifestLine(sc.Bytes())
 		if err != nil {
 			return nil, fmt.Errorf("%s:%d: %w", filename, lineno, err)
 		}
 		if e != nil {
-			e.Index = len(entries) + 1
+			sc := typeSlotCount[e.dtype]
+			if sc < 1 {
+				panic("bad dtype")
+			}
+			e.Index = size
 			entries = append(entries, e)
+			size += sc
 		}
 	}
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
 	return &manifest{
-		Size:    len(entries) + 1,
+		Size:    size,
 		Entries: entries,
 	}, nil
 }
 
-func matchInputs(mn *manifest, inputs []string) error {
-	eindex := make(map[string]int, len(mn.Entries))
-	for i, e := range mn.Entries {
-		if _, ok := eindex[e.filename]; ok {
-			return fmt.Errorf("multiple entries with path: %q", e.filename)
-		}
-		eindex[e.filename] = i
-	}
-	for _, filename := range inputs {
-		suffix := path.Clean(filepath.FromSlash(filename))
-		for {
-			if idx, ok := eindex[suffix]; ok {
-				e := mn.Entries[idx]
-				if e.fullpath != "" {
-					return fmt.Errorf("multiple files for %q: %q and %q",
-						suffix, e.fullpath, filename)
-				}
-				e.fullpath = filename
+func resolveInputs(mn *manifest, dirs []string) error {
+	for _, e := range mn.Entries {
+		var fullpath string
+		for _, dir := range dirs {
+			p := filepath.Join(dir, e.filename)
+			if _, err := os.Stat(p); err == nil {
+				fullpath = p
 				break
 			}
-			i := strings.IndexByte(suffix, '/')
-			if i == -1 {
-				return fmt.Errorf("unknown input file: %q", filename)
-			}
-			suffix = suffix[i+1:]
 		}
+		if fullpath == "" {
+			return fmt.Errorf("could not find file: %q", e.filename)
+		}
+		e.fullpath = fullpath
 	}
 	return nil
 }
@@ -143,67 +200,93 @@ func writeHeader(filename string, mn *manifest) error {
 	return fp.Close()
 }
 
+func getData(e *entry, data []byte) ([][]byte, error) {
+	switch e.dtype {
+	case typeData:
+		return [][]byte{data}, nil
+	case typeTrack:
+		tr, err := audio.ReadTrack(data)
+		if err != nil {
+			return nil, err
+		}
+		return [][]byte{tr.Codebook, tr.Data}, nil
+
+	default:
+		panic("bad type")
+	}
+}
+
 func writeData(filename string, mn *manifest) error {
-	count := len(mn.Entries)
 	type dinfo struct {
 		data []byte
 		pos  int
 	}
-	data := make([]dinfo, count)
-	for i, e := range mn.Entries {
+	var data []dinfo
+	const (
+		hsz     = 8
+		maxSize = 128 * 1024 * 1024
+	)
+	pos := (mn.Size - 1) * hsz
+	for _, e := range mn.Entries {
+		if len(data)+1 != e.Index {
+			panic("out of sync with pak index")
+		}
 		if e.fullpath == "" {
 			return fmt.Errorf("no such file found: %q", e.filename)
 		}
 		odata, err := ioutil.ReadFile(e.fullpath)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not load %s: %w", e.filename, err)
 		}
-		data[i] = dinfo{data: odata}
-	}
-	const maxSize = 128 * 1024 * 1024
-	const hsz = 8
-	header := make([]byte, 8*count)
-	pos := len(header)
-	for i, d := range data {
-		h := header[i*hsz : (i+1)*hsz : (i+1)*hsz]
-		binary.BigEndian.PutUint32(h[0:4], uint32(pos))
-		binary.BigEndian.PutUint32(h[4:8], uint32(len(d.data)))
-		data[i].pos = pos
-		pos += len(d.data)
-		pos = (pos + 1) &^ 1
+		chunks, err := getData(e, odata)
+		if err != nil {
+			return fmt.Errorf("could not parse %s: %w", e.filename, err)
+		}
+		for _, chunk := range chunks {
+			fmt.Println("Chunk", len(data), len(chunk))
+			pos = (pos + 1) &^ 1
+			data = append(data, dinfo{chunk, pos})
+			pos += len(chunk)
+		}
 		if pos > maxSize {
 			return fmt.Errorf("data too large: %d bytes", pos)
 		}
 	}
-	adata := make([]byte, pos)
-	copy(adata, header)
-	for _, d := range data {
-		copy(adata[d.pos:], d.data)
+	if len(data)+1 != mn.Size {
+		panic("out of sync with pak index")
 	}
-	return ioutil.WriteFile(filename, adata, 0666)
+	pdata := make([]byte, pos)
+	for i, d := range data {
+		h := pdata[i*hsz : (i+1)*hsz : (i+1)*hsz]
+		binary.BigEndian.PutUint32(h[0:4], uint32(d.pos))
+		binary.BigEndian.PutUint32(h[4:8], uint32(len(d.data)))
+		copy(pdata[d.pos:], d.data)
+	}
+	return ioutil.WriteFile(filename, pdata, 0666)
 }
 
 func mainE() error {
+	var dirs []string
+	flag.Var(&stringArrayValue{value: &dirs}, "dir", "search for files in ")
 	flag.Parse()
 	args := flag.Args()
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr,
-			"Usage: makepak <data-out> <header-out> <manifest> <input>...")
+			"Usage: makepak [-dir <dir>] <manifest> <data-out> <header-out>")
 		os.Exit(1)
 	}
-	if len(args) < 3 {
-		return fmt.Errorf("got %d arguments, expect at least 3", len(args))
+	if len(args) != 3 {
+		return fmt.Errorf("got %d arguments, expect exactly 3", len(args))
 	}
-	outData := args[0]
-	outHeader := args[1]
-	inManifest := args[2]
-	inputs := args[3:]
+	inManifest := args[0]
+	outData := args[1]
+	outHeader := args[2]
 
 	mn, err := readManifest(inManifest)
 	if err != nil {
 		return err
 	}
-	if err := matchInputs(mn, inputs); err != nil {
+	if err := resolveInputs(mn, dirs); err != nil {
 		return err
 	}
 	if err := writeHeader(outHeader, mn); err != nil {

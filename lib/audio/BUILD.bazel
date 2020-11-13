@@ -1,13 +1,13 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
-go_binary(
+go_library(
     name = "audio",
     srcs = [
         "audio.go",
     ],
-    visibility = ["//visibility:public"],
+    importpath = "thornmarked/tools/audio",
+    visibility = ["//tools:__subpackages__"],
     deps = [
         "//tools/audio/aiff",
-        "//tools/getpath",
     ],
 )

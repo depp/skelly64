@@ -12,3 +12,4 @@ build:asan --linkopt=-fsanitize=address
 try-import %workspace%/.user.bazelrc
 
 build --copt=-fdiagnostics-color
+buird --host_copt=-fdiagnostics-color
