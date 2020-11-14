@@ -1,6 +1,6 @@
 {
   "editor.detectIndentation": false,
-  "editor.insertSpaces" true,
+  "editor.insertSpaces": true,
   "editor.rulers": [80],
   "editor.tabSize": 4,
   "[starlark]": {
@@ -14,7 +14,7 @@
     "editor.insertSpaces": false
   },
   "[json]": {
-    "editor.tabSize": 2,
+    "editor.tabSize": 2
   },
   "C_Cpp.default.includePath": [
     "${workspaceFolder}",
@@ -22,7 +22,7 @@
     "${workspaceFolder}/sdk/include",
     "/usr/include/freetype2"
   ],
-  "C_Cpp.default.defines": ["_LANGUAGE_C"],
+  "C_Cpp.default.defines": ["_LANGUAGE_C", "F3DEX_GBI_2"],
   "files.associations": {
     "*.h": "c",
     "*.s": "mips"
