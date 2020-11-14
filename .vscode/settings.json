@@ -19,7 +19,7 @@
   "C_Cpp.default.includePath": [
     "${workspaceFolder}",
     "${workspaceFolder}/bazel-bin",
-    "${workspaceFolder}/sdk/ultra/include",
+    "${workspaceFolder}/sdk/include",
     "/usr/include/freetype2"
   ],
   "C_Cpp.default.defines": ["_LANGUAGE_C"],
