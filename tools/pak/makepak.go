@@ -243,7 +243,6 @@ func writeData(filename string, mn *manifest) error {
 			return fmt.Errorf("could not parse %s: %w", e.filename, err)
 		}
 		for _, chunk := range chunks {
-			fmt.Println("Chunk", len(data), len(chunk))
 			pos = (pos + 1) &^ 1
 			data = append(data, dinfo{chunk, pos})
 			pos += len(chunk)
