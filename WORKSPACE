@@ -43,3 +43,13 @@ register_toolchains(
 )
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+http_archive(
+    name = "fmt",
+    build_file = "@//third_party/fmt:fmt.bazel",
+    sha256 = "4119a1c34dff91631e1d0a3707428f764f1ea22fe3cd5e70af5b4ccd5513831c",
+    strip_prefix = "fmt-7.1.2",
+    urls = [
+        "https://github.com/fmtlib/fmt/archive/7.1.2.tar.gz",
+    ],
+)

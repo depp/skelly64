@@ -11,7 +11,7 @@
 #     -g0 -O2
 
 # Base C options
-_COPTS_BASE = [
+COPTS_BASE = [
     "-std=c11",
     "-D_DEFAULT_SOURCE",
 ]
@@ -32,7 +32,7 @@ _COPTS_WARNING = [
 # Internal C compilation options. Use this by default for all C targets in the
 # repo.
 COPTS = (
-    _COPTS_BASE +
+    COPTS_BASE +
     select({
         "//base/bazel:warnings_off": [],
         "//base/bazel:warnings_on": _COPTS_WARNING,
@@ -40,7 +40,7 @@ COPTS = (
     })
 )
 
-_CXXOPTS_BASE = [
+CXXOPTS_BASE = [
     "-std=c++17",
     "-D_DEFAULT_SOURCE",
 ]
@@ -54,7 +54,7 @@ _CXXOPTS_WARNING = [
 # Internal C compilation options. Use this by default for all C targets in the
 # repo.
 CXXOPTS = (
-    _CXXOPTS_BASE +
+    CXXOPTS_BASE +
     select({
         "//base/bazel:warnings_off": [],
         "//base/bazel:warnings_on": _CXXOPTS_WARNING,
