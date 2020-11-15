@@ -1,0 +1,25 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//base:copts.bzl", "CXXOPTS")
+
+cc_library(
+    name = "quote",
+    srcs = ["quote.cpp"],
+    hdrs = ["quote.hpp"],
+    copts = CXXOPTS,
+    visibility = ["//tools:__subpackages__"],
+)
+
+cc_library(
+    name = "flag",
+    srcs = [
+        "flag.cpp",
+    ],
+    hdrs = [
+        "flag.hpp",
+    ],
+    copts = CXXOPTS,
+    visibility = ["//tools:__subpackages__"],
+    deps = [
+        ":quote",
+    ],
+)

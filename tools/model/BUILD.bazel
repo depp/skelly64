@@ -1,0 +1,15 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//base:copts.bzl", "CXXOPTS")
+
+cc_binary(
+    name = "modelconvert",
+    srcs = [
+        "modelconvert.cpp",
+    ],
+    copts = CXXOPTS,
+    deps = [
+        "//tools/util:flag",
+        "//tools/util:quote",
+        "@assimp",
+    ],
+)

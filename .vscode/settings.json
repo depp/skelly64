@@ -30,5 +30,7 @@
   "files.exclude": {
     "bazel-*": true
   },
-  "go.formatTool": "goimports"
+"go.formatTool": "goimports",
+"C_Cpp.default.cppStandard": "c++17",
+"C_Cpp.default.cStandard": "c17"
 }

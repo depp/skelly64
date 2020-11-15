@@ -11,6 +11,16 @@ pkg_config_repository(
     spec = "freetype2",
 )
 
+pkg_config_repository(
+    name = "assimp",
+    includes = [
+        "assimp/**/*.h",
+        "assimp/**/*.hpp",
+        "assimp/**/*.inl",
+    ],
+    spec = "assimp",
+)
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -31,3 +41,5 @@ go_register_toolchains()
 register_toolchains(
     "//n64:cc-toolchain-n64",
 )
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
