@@ -23,3 +23,19 @@ cc_library(
         ":quote",
     ],
 )
+
+cc_library(
+    name = "hash",
+    hdrs = [
+        "hash.hpp",
+    ],
+    visibility = ["//tools:__subpackages__"],
+)
+
+cc_library(
+    name = "bswap",
+    hdrs = [
+        "bswap.hpp",
+    ],
+    visibility = ["//tools:__subpackages__"],
+)

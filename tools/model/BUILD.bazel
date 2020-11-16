@@ -4,12 +4,23 @@ load("//base:copts.bzl", "CXXOPTS")
 cc_binary(
     name = "modelconvert",
     srcs = [
+        "gbi.cpp",
+        "gbi.hpp",
+        "mesh.cpp",
+        "mesh.hpp",
+        "mesh_batch.cpp",
+        "mesh_emit.cpp",
+        "mesh_import.cpp",
         "modelconvert.cpp",
     ],
     copts = CXXOPTS,
+    visibility = ["//visibility:public"],
     deps = [
+        "//tools/util:bswap",
         "//tools/util:flag",
+        "//tools/util:hash",
         "//tools/util:quote",
         "@assimp",
+        "@fmt",
     ],
 )
