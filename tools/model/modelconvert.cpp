@@ -22,6 +22,7 @@ namespace {
 struct Args {
     std::string model;
     std::string output;
+    bool dump;
 };
 
 void FixPath(std::string *path, std::string_view wd) {
@@ -44,11 +45,13 @@ Args ParseArgs(int argc, char **argv) {
             wd.assign(dir);
         }
     }
-    Args args;
+    Args args{};
     flag::Parser fl;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");
+    fl.AddFlag(flag::SetValue(&args.dump, true), "dump",
+               "dump information about model", "");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -110,7 +113,7 @@ void Main(int argc, char **argv) {
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
     }
-    if (args.output.empty()) {
+    if (args.dump) {
         VisitNode(scene->mRootNode);
     }
     VertexSet verts;
@@ -121,8 +124,12 @@ void Main(int argc, char **argv) {
          ptr != end; ptr++) {
         mesh.AddMesh(*ptr);
     }
+    if (args.dump) {
+        fmt::print("verts = {}; tris = {};\n", mesh.vertexes.vertexes.size(),
+                   mesh.triangles.size());
+    }
     BatchMesh bmesh = mesh.MakeBatches(32);
-    if (args.output.empty()) {
+    if (args.dump) {
         bmesh.Dump();
     }
     std::vector<Material> materials;
