@@ -52,12 +52,9 @@ type font struct {
 	textures []*image.RGBA
 }
 
-func rasterizeFont(rasterTool, filename string, size int) (*font, error) {
-	if rasterTool == "" {
-		rasterTool = "tools/font/raster/raster"
-	}
+func rasterizeFont(filename string, size int) (*font, error) {
 	cmd := exec.Command(
-		rasterTool,
+		getpath.GetTool("tools/font/raster/raster"),
 		"rasterize",
 		"-font="+filename,
 		"-size="+strconv.Itoa(size),
@@ -392,7 +389,6 @@ type options struct {
 	texfmt       texture.SizedFormat
 	charset      charset.Set
 	removeNotdef bool
-	rasterTool   string
 	mono         bool
 	fallbackfile string
 }
@@ -433,7 +429,6 @@ func parseOpts() (o options, err error) {
 	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
 	outDataArg := flag.String("out-data", "", "output font data file")
 	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
-	flag.StringVar(&o.rasterTool, "tool-raster", "", "path to raster tool (needed for genrule)")
 	flag.BoolVar(&o.mono, "mono", false, "render monochrome (1-bit, instead of grayscale)")
 	outFallbackArg := flag.String("out-fallback", "", "output for fallback font data")
 	flag.Parse()
@@ -488,7 +483,7 @@ func mainE() error {
 	if err != nil {
 		return err
 	}
-	fn, err := rasterizeFont(opts.rasterTool, opts.font, opts.size)
+	fn, err := rasterizeFont(opts.font, opts.size)
 	if err != nil {
 		return err
 	}
