@@ -28,7 +28,7 @@ uint16_t pack16(uint8_t hi, uint8_t lo) {
 uint32_t Vertex::Hash() const {
     util::Murmur3 h = util::Murmur3::Initial(0);
     h.Update(pack32(pos[0], pos[1]));
-    h.Update(pos[2]);;
+    h.Update(pos[2]);
     h.Update(pack32(texcoord[0], texcoord[1]));
     h.Update(alpha);
     h.Update(pack32(pack16(color[0], color[1]), pack16(color[2], 0)));
