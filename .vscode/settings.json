@@ -20,6 +20,7 @@
     "${workspaceFolder}",
     "${workspaceFolder}/bazel-bin",
     "${workspaceFolder}/sdk/include",
+    "${workspaceFolder}/bazel-thornmarked/external/fmt/include",
     "/usr/include/freetype2"
   ],
   "C_Cpp.default.defines": ["_LANGUAGE_C", "F3DEX_GBI_2"],
