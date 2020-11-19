@@ -71,8 +71,18 @@ class String : public FlagBase {
     std::string *m_ptr;
 
 public:
-    explicit String(std::string *value);
-    ~String();
+    explicit String(std::string *value) : m_ptr{value} {}
+
+    bool HasArgument() const override;
+    void Parse(std::optional<std::string_view> arg) override;
+};
+
+// Float valued flag.
+class Float : public FlagBase {
+    double *m_ptr;
+
+public:
+    explicit Float(double *value) : m_ptr{value} {}
 
     bool HasArgument() const override;
     void Parse(std::optional<std::string_view> arg) override;

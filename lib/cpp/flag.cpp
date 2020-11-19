@@ -12,8 +12,8 @@ UsageError::UsageError(const char *what) : std::runtime_error{what} {}
 
 FlagBase::~FlagBase() {}
 
-String::String(std::string *value) : m_ptr{value} {}
-String::~String() {}
+// =============================================================================
+
 bool String::HasArgument() const {
     return true;
 }
@@ -21,6 +21,31 @@ void String::Parse(std::optional<std::string_view> arg) {
     assert(arg.has_value());
     *m_ptr = *arg;
 }
+
+// =============================================================================
+
+bool Float::HasArgument() const {
+    return true;
+}
+void Float::Parse(std::optional<std::string_view> arg) {
+    assert(arg.has_value());
+    std::string tmp{*arg};
+    size_t pos;
+    double value;
+    try {
+        value = std::stod(tmp, &pos);
+    } catch (std::invalid_argument &ex) {
+        throw UsageError("expected a floating-point value");
+    } catch (std::out_of_range &ex) {
+        throw UsageError("floating-point value too large");
+    }
+    if (pos != tmp.size()) {
+        throw UsageError("expected a floating-point value");
+    }
+    *m_ptr = value;
+}
+
+// =============================================================================
 
 Parser::~Parser() {}
 
