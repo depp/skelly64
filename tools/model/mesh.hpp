@@ -55,6 +55,17 @@ struct Triangle {
     std::array<unsigned, 3> vertex;
 };
 
+// Configuration for importing / rendering the mesh.
+struct Config {
+    // If true, the materials are given a primitive color equal to the
+    // material’s diffuse color in the input model.
+    bool use_primitive_color;
+    // If true, vertex normals and added to the vertex data.
+    bool use_normals;
+    // The amount to scale the model.
+    float scale;
+};
+
 // Information about a material.
 struct Material {
     // Primitive color.
@@ -64,10 +75,18 @@ struct Material {
     static Material Default();
 
     // Import a material from Assimp.
-    static Material Import(aiMaterial *mat);
+    static Material Import(const Config &cfg, aiMaterial *mat);
 
     // Write commands to a display list, given the previous state.
     void Write(const Material &state, std::vector<Gfx> *dl) const;
+
+    bool operator==(const Vertex &v) const;
+    bool operator!=(const Vertex &v) const;
+    uint32_t Hash() const;
+};
+
+struct HashMaterial {
+    uint32_t operator()(const Vertex &v) const { return v.Hash(); }
 };
 
 struct BatchMesh;
@@ -79,7 +98,7 @@ struct Mesh {
 
     // Add an Assimp mesh to the mesh, giving its faces the given material
     // index.
-    void AddMesh(aiMesh *mesh, float scale);
+    void AddMesh(const Config &cfg, aiMesh *mesh);
 
     // Convert the mesh into batches of triangle, where each batch fits
     BatchMesh MakeBatches(unsigned cache_size);
@@ -108,7 +127,8 @@ struct BatchMesh {
 
     // Emit as GBI commands and vertex data for the Nintendo 64. This assumes
     // that segment 1 points at the beginning of this data block.
-    std::vector<uint8_t> EmitGBI(const std::vector<Material> &materials) const;
+    std::vector<uint8_t> EmitGBI(const Config &cfg,
+                                 const std::vector<Material> &materials) const;
 };
 
 } // namespace modelconvert

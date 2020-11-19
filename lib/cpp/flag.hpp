@@ -58,11 +58,18 @@ public:
 // Flags
 // =============================================================================
 
+// Whether an argument for the flag is required or possible.
+enum class FlagArgument {
+    None,
+    Optional,
+    Required,
+};
+
 // Base class for command-line flags.
 class FlagBase {
 public:
     virtual ~FlagBase();
-    virtual bool HasArgument() const = 0;
+    virtual FlagArgument Argument() const = 0;
     virtual void Parse(std::optional<std::string_view> arg) = 0;
 };
 
@@ -73,18 +80,29 @@ class String : public FlagBase {
 public:
     explicit String(std::string *value) : m_ptr{value} {}
 
-    bool HasArgument() const override;
+    FlagArgument Argument() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
-// Float valued flag.
-class Float : public FlagBase {
+// Float32 valued flag.
+class Float32 : public FlagBase {
+    float *m_ptr;
+
+public:
+    explicit Float32(float *value) : m_ptr{value} {}
+
+    FlagArgument Argument() const override;
+    void Parse(std::optional<std::string_view> arg) override;
+};
+
+// Float64 valued flag.
+class Float64 : public FlagBase {
     double *m_ptr;
 
 public:
-    explicit Float(double *value) : m_ptr{value} {}
+    explicit Float64(double *value) : m_ptr{value} {}
 
-    bool HasArgument() const override;
+    FlagArgument Argument() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
@@ -98,7 +116,7 @@ public:
     SetValue(T *ptr, T value) : m_ptr{ptr}, m_value{value} {}
     ~SetValue() = default;
 
-    bool HasArgument() const override { return false; }
+    FlagArgument Argument() const override { return FlagArgument::None; }
     void Parse(std::optional<std::string_view> arg) override {
         (void)&arg;
         *m_ptr = m_value;
@@ -131,6 +149,13 @@ public:
         AddFlagImpl(std::make_shared<F>(std::forward<F>(flag)), name, help,
                     metavar);
     }
+
+    // Add a boolean-valued flag to the argument parser.
+    //
+    // The value will be true for -flag, -flag=true, flag=yes, flag=on, and
+    // -flag=1. The value will be false for -no-flag, -flag=false, -flag=no,
+    // flag=off, and -flag=0.
+    void AddBoolFlag(bool *value, const char *name, const char *help);
 
     void ParseAll(ProgramArguments &args);
     void ParseNext(ProgramArguments &args);

@@ -14,8 +14,8 @@ FlagBase::~FlagBase() {}
 
 // =============================================================================
 
-bool String::HasArgument() const {
-    return true;
+FlagArgument String::Argument() const {
+    return FlagArgument::Required;
 }
 void String::Parse(std::optional<std::string_view> arg) {
     assert(arg.has_value());
@@ -24,10 +24,33 @@ void String::Parse(std::optional<std::string_view> arg) {
 
 // =============================================================================
 
-bool Float::HasArgument() const {
-    return true;
+FlagArgument Float32::Argument() const {
+    return FlagArgument::Required;
 }
-void Float::Parse(std::optional<std::string_view> arg) {
+void Float32::Parse(std::optional<std::string_view> arg) {
+    assert(arg.has_value());
+    std::string tmp{*arg};
+    size_t pos;
+    float value;
+    try {
+        value = std::stof(tmp, &pos);
+    } catch (std::invalid_argument &ex) {
+        throw UsageError("expected a floating-point value");
+    } catch (std::out_of_range &ex) {
+        throw UsageError("floating-point value too large");
+    }
+    if (pos != tmp.size()) {
+        throw UsageError("expected a floating-point value");
+    }
+    *m_ptr = value;
+}
+
+// =============================================================================
+
+FlagArgument Float64::Argument() const {
+    return FlagArgument::Required;
+}
+void Float64::Parse(std::optional<std::string_view> arg) {
     assert(arg.has_value());
     std::string tmp{*arg};
     size_t pos;
@@ -44,6 +67,49 @@ void Float::Parse(std::optional<std::string_view> arg) {
     }
     *m_ptr = value;
 }
+
+// =============================================================================
+
+namespace {
+
+struct BoolStr {
+    char text[7];
+    bool value;
+};
+
+const BoolStr BoolStrs[] = {
+    {"false", false}, {"true", true}, {"no", false}, {"yes", true},
+    {"off", false},   {"on", true},   {"0", false},  {"1", true},
+};
+
+// Boolean valued flag.
+class Bool : public FlagBase {
+    bool *m_ptr;
+
+public:
+    explicit Bool(bool *value) : m_ptr{value} {}
+
+    FlagArgument Argument() const override { return FlagArgument::Optional; }
+    void Parse(std::optional<std::string_view> arg) override {
+        bool value = true;
+        if (arg.has_value()) {
+            bool ok = false;
+            for (const BoolStr &s : BoolStrs) {
+                if (*arg == s.text) {
+                    value = s.value;
+                    ok = true;
+                    break;
+                }
+            }
+            if (!ok) {
+                throw UsageError("invalid value for boolean flag");
+            }
+        }
+        *m_ptr = value;
+    }
+};
+
+} // namespace
 
 // =============================================================================
 
@@ -115,7 +181,8 @@ void Parser::ParseNext(ProgramArguments &args) {
     FlagBase &fl = *it->second->flag;
 
     // Parse the flag itself.
-    if (fl.HasArgument()) {
+    switch (fl.Argument()) {
+    case FlagArgument::Required:
         if (!value.has_value()) {
             arg = args.arg();
             if (arg == nullptr) {
@@ -127,13 +194,17 @@ void Parser::ParseNext(ProgramArguments &args) {
             args.Next();
             value = std::string_view{arg};
         }
-    } else {
+        break;
+    case FlagArgument::None:
         if (value.has_value()) {
             std::string flag = "-";
             flag.append(name);
             throw MakeUsageError("flag has unexpected parameter", flag);
         }
+    case FlagArgument::Optional:
+        break;
     }
+
     fl.Parse(value);
 }
 
@@ -153,6 +224,31 @@ void Parser::AddFlagImpl(std::shared_ptr<FlagBase> flag, const char *name,
         f.metavar.assign(metavar);
     }
     r.first->second = std::move(fp);
+}
+
+void Parser::AddBoolFlag(bool *value, const char *name, const char *help) {
+    std::string pos_name = name;
+    std::string neg_name = "no-";
+    neg_name.append(name);
+
+    std::shared_ptr<Flag> fpos{std::make_shared<Flag>()};
+    std::shared_ptr<Flag> fneg{std::make_shared<Flag>()};
+    fpos->flag = std::make_shared<Bool>(value);
+    if (help != nullptr) {
+        fpos->help.assign(help);
+    }
+    fneg->flag = std::make_shared<SetValue<bool>>(value, false);
+
+    auto r = m_flags.emplace(pos_name, nullptr);
+    if (!r.second) {
+        throw std::logic_error("duplicate flag");
+    }
+    r.first->second = std::move(fpos);
+    r = m_flags.emplace(neg_name, nullptr);
+    if (!r.second) {
+        throw std::logic_error("duplicate flag");
+    }
+    r.first->second = std::move(fneg);
 }
 
 } // namespace flag

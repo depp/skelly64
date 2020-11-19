@@ -24,7 +24,7 @@ struct Args {
     std::string output;
     bool dump;
 
-    double scale;
+    Config config;
 };
 
 void FixPath(std::string *path, std::string_view wd) {
@@ -54,7 +54,12 @@ Args ParseArgs(int argc, char **argv) {
                "FILE");
     fl.AddFlag(flag::SetValue(&args.dump, true), "dump",
                "dump information about model", "");
-    fl.AddFlag(flag::Float(&args.scale), "scale", "amount to scale model", "N");
+    fl.AddBoolFlag(&args.config.use_primitive_color, "use-primitive-color",
+                   "use primitive color from material");
+    fl.AddBoolFlag(&args.config.use_normals, "use-normals",
+                   "use vertex normals");
+    fl.AddFlag(flag::Float32(&args.config.scale), "scale",
+               "amount to scale model", "N");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -64,7 +69,7 @@ Args ParseArgs(int argc, char **argv) {
     }
     FixPath(&args.model, wd);
     FixPath(&args.output, wd);
-    if (!std::isfinite(args.scale) || args.scale <= 0.0) {
+    if (!std::isfinite(args.config.scale) || args.config.scale <= 0.0) {
         FailUsage("-scale must be a positive number");
     }
     return args;
@@ -128,7 +133,7 @@ void Main(int argc, char **argv) {
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
          ptr != end; ptr++) {
-        mesh.AddMesh(*ptr, args.scale);
+        mesh.AddMesh(args.config, *ptr);
     }
     if (args.dump) {
         fmt::print("verts = {}; tris = {};\n", mesh.vertexes.vertexes.size(),
@@ -142,10 +147,10 @@ void Main(int argc, char **argv) {
     for (aiMaterial **ptr = scene->mMaterials,
                     **end = ptr + scene->mNumMaterials;
          ptr != end; ptr++) {
-        materials.push_back(Material::Import(*ptr));
+        materials.push_back(Material::Import(args.config, *ptr));
     }
     if (!args.output.empty()) {
-        std::vector<uint8_t> data = bmesh.EmitGBI(materials);
+        std::vector<uint8_t> data = bmesh.EmitGBI(args.config, materials);
         WriteFile(args.output, data);
     }
 }

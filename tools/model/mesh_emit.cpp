@@ -20,7 +20,7 @@ Material Material::Default() {
 }
 
 std::vector<uint8_t> BatchMesh::EmitGBI(
-    const std::vector<Material> &materials) const {
+    const Config &cfg, const std::vector<Material> &materials) const {
     // Emit the display list.
     std::vector<std::pair<unsigned, const Batch *>> batch_offsets;
     std::vector<Gfx> dl;
@@ -90,16 +90,30 @@ std::vector<uint8_t> BatchMesh::EmitGBI(
         g.Write(ptr);
         ptr += GfxSize;
     }
-    for (const Vertex &v : vertexes) {
-        VtxC vc{};
-        vc.pos = v.pos;
-        vc.texcoord = v.texcoord;
-        for (int i = 0; i < 3; i++) {
-            vc.color[i] = v.color[i];
+    if (cfg.use_normals) {
+        for (const Vertex &v : vertexes) {
+            VtxC vc{};
+            vc.pos = v.pos;
+            vc.texcoord = v.texcoord;
+            for (int i = 0; i < 3; i++) {
+                vc.color[i] = v.normal[i];
+            }
+            vc.color[3] = v.alpha;
+            vc.Write(ptr);
+            ptr += VtxSize;
         }
-        vc.color[3] = v.alpha;
-        vc.Write(ptr);
-        ptr += VtxSize;
+    } else {
+        for (const Vertex &v : vertexes) {
+            VtxC vc{};
+            vc.pos = v.pos;
+            vc.texcoord = v.texcoord;
+            for (int i = 0; i < 3; i++) {
+                vc.color[i] = v.color[i];
+            }
+            vc.color[3] = v.alpha;
+            vc.Write(ptr);
+            ptr += VtxSize;
+        }
     }
     return data;
 }

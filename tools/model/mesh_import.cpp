@@ -23,18 +23,19 @@ namespace {
 
 } // namespace
 
-void Mesh::AddMesh(aiMesh *mesh, float scale) {
+void Mesh::AddMesh(const Config &cfg, aiMesh *mesh) {
     unsigned nvert = mesh->mNumVertices;
     std::vector<Vertex> mverts(nvert, Vertex{});
 
     // Get vertex positions.
     {
+        const float scale = cfg.scale;
         const aiVector3D *posarr = mesh->mVertices;
         for (unsigned i = 0; i < nvert; i++) {
-            aiVector3D fpos = posarr[i];
+            const aiVector3D fpos = posarr[i];
             std::array<int16_t, 3> ipos;
             for (int j = 0; j < 3; j++) {
-                float v = fpos[j] * scale;
+                const float v = fpos[j] * scale;
                 if (v > std::numeric_limits<int16_t>::min()) {
                     if (v < std::numeric_limits<int16_t>::max()) {
                         ipos[j] = std::lrintf(v);
@@ -46,6 +47,31 @@ void Mesh::AddMesh(aiMesh *mesh, float scale) {
                 }
             }
             mverts[i].pos = ipos;
+        }
+    }
+
+    // Get vertex normals.
+    if (cfg.use_normals) {
+        const aiVector3D *normarr = mesh->mNormals;
+        for (unsigned i = 0; i < nvert; i++) {
+            const aiVector3D fnorm = normarr[i];
+            std::array<int8_t, 3> inorm;
+            for (int j = 0; j < 3; j++) {
+                // 11.7.2 Normal Vector Normalization: scale to 127.
+                const float v = fnorm[j] * 127.0f;
+                int iv;
+                if (v > std::numeric_limits<int8_t>::min()) {
+                    if (v < std::numeric_limits<int8_t>::max()) {
+                        iv = std::lrintf(v);
+                    } else {
+                        iv = std::numeric_limits<int8_t>::max();
+                    }
+                } else {
+                    iv = std::numeric_limits<int8_t>::min();
+                }
+                inorm[j] = iv;
+            }
+            mverts[i].normal = inorm;
         }
     }
 
@@ -82,20 +108,12 @@ void Mesh::AddMesh(aiMesh *mesh, float scale) {
     }
 }
 
-Material Material::Import(aiMaterial *mat) {
-    // for (aiMaterialProperty **ptr = mat->mProperties,
-    //                         **end = ptr + mat->mNumProperties;
-    //      ptr != end; ptr++) {
-    //     aiMaterialProperty *prop = *ptr;
-    //     fmt::print("Name = {}\n", util::Quote(Str(prop->mKey)));
-    // }
-    aiColor4D diffuse{1.0f, 1.0f, 1.0f, 1.0f};
-    if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse) != AI_SUCCESS) {
-        throw MeshError("could not get diffuse color");
-    }
-    Material m = Default();
+namespace {
+
+std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
+    std::array<uint8_t, 4> rgba;
     for (int i = 0; i < 4; i++) {
-        float c = diffuse[i];
+        float c = color[i];
         int v = 255;
         if (c < 1.0f) {
             if (c > 0.0f) {
@@ -107,8 +125,29 @@ Material Material::Import(aiMaterial *mat) {
                 v = 0;
             }
         }
-        m.rgba[i] = v;
+        rgba[i] = v;
     }
+    return rgba;
+}
+
+} // namespace
+
+Material Material::Import(const Config &cfg, aiMaterial *mat) {
+    // for (aiMaterialProperty **ptr = mat->mProperties,
+    //                         **end = ptr + mat->mNumProperties;
+    //      ptr != end; ptr++) {
+    //     aiMaterialProperty *prop = *ptr;
+    //     fmt::print("Name = {}\n", util::Quote(Str(prop->mKey)));
+    // }
+    Material m = Default();
+    if (cfg.use_primitive_color) {
+        aiColor4D diffuse{1.0f, 1.0f, 1.0f, 1.0f};
+        if (mat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse) != AI_SUCCESS) {
+            throw MeshError("could not get diffuse color");
+        }
+        m.rgba = ImportColor(diffuse);
+    }
+
     return m;
 }
 
