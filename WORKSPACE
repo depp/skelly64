@@ -1,5 +1,15 @@
 workspace(name = "thornmarked")
 
+load("//base/bazel:tools.bzl", "local_tools_repository")
+
+local_tools_repository(
+    name = "tools",
+    tools = [
+        "flac",
+        "sox",
+    ],
+)
+
 load("//base/bazel:pkg_config.bzl", "pkg_config_repository")
 
 pkg_config_repository(
