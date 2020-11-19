@@ -23,6 +23,8 @@ struct Args {
     std::string model;
     std::string output;
     bool dump;
+
+    double scale;
 };
 
 void FixPath(std::string *path, std::string_view wd) {
@@ -52,6 +54,7 @@ Args ParseArgs(int argc, char **argv) {
                "FILE");
     fl.AddFlag(flag::SetValue(&args.dump, true), "dump",
                "dump information about model", "");
+    fl.AddFlag(flag::Float(&args.scale), "scale", "amount to scale model", "N");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -61,6 +64,9 @@ Args ParseArgs(int argc, char **argv) {
     }
     FixPath(&args.model, wd);
     FixPath(&args.output, wd);
+    if (!std::isfinite(args.scale) || args.scale <= 0.0) {
+        FailUsage("-scale must be a positive number");
+    }
     return args;
 }
 
@@ -122,7 +128,7 @@ void Main(int argc, char **argv) {
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
          ptr != end; ptr++) {
-        mesh.AddMesh(*ptr);
+        mesh.AddMesh(*ptr, args.scale);
     }
     if (args.dump) {
         fmt::print("verts = {}; tris = {};\n", mesh.vertexes.vertexes.size(),

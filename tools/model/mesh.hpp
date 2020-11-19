@@ -79,7 +79,7 @@ struct Mesh {
 
     // Add an Assimp mesh to the mesh, giving its faces the given material
     // index.
-    void AddMesh(aiMesh *mesh);
+    void AddMesh(aiMesh *mesh, float scale);
 
     // Convert the mesh into batches of triangle, where each batch fits
     BatchMesh MakeBatches(unsigned cache_size);

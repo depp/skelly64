@@ -23,7 +23,7 @@ namespace {
 
 } // namespace
 
-void Mesh::AddMesh(aiMesh *mesh) {
+void Mesh::AddMesh(aiMesh *mesh, float scale) {
     unsigned nvert = mesh->mNumVertices;
     std::vector<Vertex> mverts(nvert, Vertex{});
 
@@ -34,7 +34,7 @@ void Mesh::AddMesh(aiMesh *mesh) {
             aiVector3D fpos = posarr[i];
             std::array<int16_t, 3> ipos;
             for (int j = 0; j < 3; j++) {
-                float v = fpos[j] * 100.0f;
+                float v = fpos[j] * scale;
                 if (v > std::numeric_limits<int16_t>::min()) {
                     if (v < std::numeric_limits<int16_t>::max()) {
                         ipos[j] = std::lrintf(v);
