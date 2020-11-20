@@ -29,6 +29,8 @@ cc_library(
         "console_global.c",
         "console_internal.h",
         "fatal.c",
+        "float.c",
+        "vec2.c",
     ] + select({
         "//n64:os": [
             "console_n64.c",
@@ -48,6 +50,9 @@ cc_library(
     hdrs = [
         "base.h",
         "console.h",
+        "float.h",
+        "vec2.h",
+        "vectypes.h",
     ] + select({
         "//n64:os": [
             "console_n64.h",
