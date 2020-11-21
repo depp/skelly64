@@ -129,6 +129,8 @@ void MeshInfo(std::FILE *stats, const Mesh &mesh) {
     const std::array<int16_t, 3> min = mesh.bounds_min, max = mesh.bounds_max;
     fmt::print(stats, "Bounds: ({}, {}, {}) ({}, {}, {})\n", min[0], min[1],
                min[2], max[0], max[1], max[2]);
+    fmt::print(stats, "Size: ({}, {}, {})\n", max[0] - min[0], max[1] - min[1],
+               max[2] - min[2]);
 }
 
 void WriteFile(const std::string &out, const std::vector<uint8_t> &data) {
