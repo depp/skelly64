@@ -1,5 +1,6 @@
 #include "tools/util/expr.hpp"
 
+#include <cmath>
 #include <fmt/core.h>
 #include <system_error>
 
@@ -53,6 +54,7 @@ const char *TokenName(Token tok) {
     case Token::CloseParen:
         return ")";
     }
+    return "<unknown>";
 }
 
 class Tokenizer {
@@ -256,6 +258,7 @@ double UnExpr::Eval(const Env &env) const {
     case UnOp::Neg:
         return -rhs;
     }
+    throw ExprEvalError("invalid UnExpr");
 }
 
 double BinExpr::Eval(const Env &env) const {
@@ -277,6 +280,8 @@ double BinExpr::Eval(const Env &env) const {
         }
         result = lhs / rhs;
         break;
+    default:
+        throw ExprEvalError("invalid BinExpr");
     }
     if (!std::isfinite(result)) {
         throw ExprEvalError("expression overflowed");
@@ -330,6 +335,8 @@ void BinExpr::Append(std::string *out, int prec) const {
         op_prec = PrecMul;
         op_text = "/";
         break;
+    default:
+        throw ExprEvalError("invalid BinExpr");
     }
     if (prec > op_prec) {
         out->push_back('(');
