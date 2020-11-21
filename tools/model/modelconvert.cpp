@@ -1,4 +1,6 @@
 #include "tools/modelconvert/mesh.hpp"
+#include "tools/util/expr.hpp"
+#include "tools/util/expr_flag.hpp"
 #include "tools/util/flag.hpp"
 #include "tools/util/quote.hpp"
 
@@ -47,6 +49,8 @@ struct Args {
     std::string model;
     std::string output;
     std::string output_stats;
+    util::Expr::Ref scale;
+    int precision;
 
     Config config;
 };
@@ -73,6 +77,7 @@ Args ParseArgs(int argc, char **argv) {
     }
     Args args{};
     flag::Parser fl;
+    args.precision = 14;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");
@@ -82,8 +87,10 @@ Args ParseArgs(int argc, char **argv) {
                    "use primitive color from material");
     fl.AddBoolFlag(&args.config.use_normals, "use-normals",
                    "use vertex normals");
-    fl.AddFlag(flag::Float32(&args.config.scale), "scale",
-               "amount to scale model", "N");
+    fl.AddFlag(util::ExprFlag(&args.scale), "scale", "amount to scale model",
+               "EXPR");
+    fl.AddFlag(flag::Int(&args.precision), "precision",
+               "bits of precision for vertex position", "N");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -94,8 +101,13 @@ Args ParseArgs(int argc, char **argv) {
     FixPath(&args.model, wd);
     FixPath(&args.output, wd);
     FixPath(&args.output_stats, wd);
-    if (!std::isfinite(args.config.scale) || args.config.scale <= 0.0) {
-        FailUsage("-scale must be a positive number");
+    if (!args.scale) {
+        FailUsage("missing required flag -scale");
+    }
+    if (args.precision < 2) {
+        FailUsage("-precision must be at least 2");
+    } else if (args.precision > 16) {
+        FailUsage("-precision cannot be larger than 16");
     }
     return args;
 }
@@ -150,6 +162,7 @@ void WriteFile(const std::string &out, const std::vector<uint8_t> &data) {
 
 void Main(int argc, char **argv) {
     Args args = ParseArgs(argc, argv);
+    Config cfg = args.config;
     Assimp::Importer importer;
 
     File stats;
@@ -160,12 +173,62 @@ void Main(int argc, char **argv) {
         }
     }
 
+    // Import mesh.
     const aiScene *scene = importer.ReadFile(
         args.model, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
     if (scene == nullptr) {
-        fmt::print(stderr, "Error: could not import {}: {}",
+        fmt::print(stderr, "Error: could not import {}: {}\n",
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
+    }
+    {
+        util::Expr::Env env;
+        double scale = args.scale->Eval(env);
+        if (!std::isfinite(scale) || scale <= 0) {
+            fmt::print(stderr, "Error: scale must be a positive number\n");
+            std::exit(1);
+        }
+        if (stats) {
+            fmt::print(stats, "Scale: {}\n", scale);
+        }
+
+        float max[3] = {0.0f, 0.0f, 0.0f};
+        for (aiMesh **ptr = scene->mMeshes, **end = ptr + scene->mNumMeshes;
+             ptr != end; ptr++) {
+            aiMesh *mesh = *ptr;
+            for (const aiVector3D *vptr = mesh->mVertices,
+                                  *vend = vptr + mesh->mNumVertices;
+                 vptr != vend; vptr++) {
+                float val[3] = {vptr->x, vptr->y, vptr->z};
+                for (int i = 0; i < 3; i++) {
+                    float v = val[i];
+                    if (v < 0) {
+                        v = -v;
+                    }
+                    if (v > max[i]) {
+                        max[i] = v;
+                    }
+                }
+            }
+        }
+        if (stats) {
+            fmt::print(stats, "Bounding box: ({}, {}, {})\n", max[0], max[1],
+                       max[2]);
+        }
+        double max3 = std::max(std::max(max[0], max[1]), max[2]);
+        double import_scale = 1.0;
+        double game_scale = 1.0;
+        if (max3 > 0.0) {
+            double target_max = (1 << (args.precision - 1)) - 1;
+            import_scale = target_max / max3;
+            game_scale = scale * max3 / target_max;
+        }
+        cfg.import_scale = import_scale;
+        cfg.game_scale = game_scale;
+        if (stats) {
+            fmt::print(stats, "Import scale: {}\n", import_scale);
+            fmt::print(stats, "Game scale: {}\n", game_scale);
+        }
     }
     if (stats) {
         fmt::print(stats, "Nodes:\n");
@@ -177,7 +240,7 @@ void Main(int argc, char **argv) {
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
          ptr != end; ptr++) {
-        mesh.AddMesh(args.config, stats, *ptr);
+        mesh.AddMesh(cfg, stats, *ptr);
     }
     if (stats) {
         MeshInfo(stats, mesh);
@@ -190,10 +253,10 @@ void Main(int argc, char **argv) {
     for (aiMaterial **ptr = scene->mMaterials,
                     **end = ptr + scene->mNumMaterials;
          ptr != end; ptr++) {
-        materials.push_back(Material::Import(args.config, *ptr));
+        materials.push_back(Material::Import(cfg, *ptr));
     }
     if (!args.output.empty()) {
-        std::vector<uint8_t> data = bmesh.EmitGBI(args.config, materials);
+        std::vector<uint8_t> data = bmesh.EmitGBI(cfg, materials);
         WriteFile(args.output, data);
     }
 }

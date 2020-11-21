@@ -31,7 +31,7 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
 
     // Get vertex positions.
     {
-        const float scale = cfg.scale;
+        const float scale = cfg.import_scale;
         const aiVector3D *posarr = mesh->mVertices;
         for (unsigned i = 0; i < nvert; i++) {
             const aiVector3D fpos = posarr[i];

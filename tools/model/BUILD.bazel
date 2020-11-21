@@ -17,6 +17,7 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//tools/util:bswap",
+        "//tools/util:expr",
         "//tools/util:flag",
         "//tools/util:hash",
         "//tools/util:quote",

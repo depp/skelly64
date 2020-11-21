@@ -64,8 +64,10 @@ struct Config {
     bool use_primitive_color;
     // If true, vertex normals and added to the vertex data.
     bool use_normals;
-    // The amount to scale the model.
-    float scale;
+    // The amount to scale the input model data.
+    float import_scale;
+    // The amount to scale in-game.
+    float game_scale;
 };
 
 // Information about a material.

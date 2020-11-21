@@ -50,16 +50,19 @@ const (
 	typeUnknown datatype = iota
 	typeData
 	typeTrack
+	typeModel
 )
 
 var types = [...]string{
 	typeData:  "data",
 	typeTrack: "track",
+	typeModel: "model",
 }
 
 var typeSlotCount = [...]int{
 	typeData:  1,
 	typeTrack: 2,
+	typeModel: 1,
 }
 
 func parseType(s string) (t datatype, err error) {
@@ -200,6 +203,18 @@ func writeHeader(filename string, mn *manifest) error {
 	return fp.Close()
 }
 
+func checkMagic(data []byte, magic string, n int) error {
+	if len(data) < n {
+		return errors.New("file too short")
+	}
+	expect := make([]byte, n)
+	dmagic := data[:n]
+	if !bytes.Equal(dmagic[:len(magic)], []byte(magic)) {
+		return fmt.Errorf("invalid header %q, expect %q", dmagic, expect)
+	}
+	return nil
+}
+
 func getData(e *entry, data []byte) ([][]byte, error) {
 	switch e.dtype {
 	case typeData:
@@ -210,7 +225,11 @@ func getData(e *entry, data []byte) ([][]byte, error) {
 			return nil, err
 		}
 		return [][]byte{tr.Codebook, tr.Data}, nil
-
+	case typeModel:
+		if err := checkMagic(data, "Model", 16); err != nil {
+			return nil, err
+		}
+		return [][]byte{data[16:]}, nil
 	default:
 		panic("bad type")
 	}

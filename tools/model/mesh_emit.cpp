@@ -1,6 +1,7 @@
 #include "tools/modelconvert/mesh.hpp"
 
 #include "tools/modelconvert/gbi.hpp"
+#include "tools/util/bswap.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -19,8 +20,24 @@ Material Material::Default() {
     return Material{{{255, 255, 255, 255}}};
 }
 
+namespace {
+
+struct Header {
+    float scale;
+
+    void Write(uint8_t *ptr) const {
+        uint32_t x = util::BSwapPutF32(scale);
+        std::memcpy(ptr, &x, sizeof(x));
+    }
+};
+
+} // namespace
+
 std::vector<uint8_t> BatchMesh::EmitGBI(
     const Config &cfg, const std::vector<Material> &materials) const {
+    const size_t headerlen = 8;
+    const size_t magiclen = 16;
+
     // Emit the display list.
     std::vector<std::pair<unsigned, const Batch *>> batch_offsets;
     std::vector<Gfx> dl;
@@ -73,7 +90,7 @@ std::vector<uint8_t> BatchMesh::EmitGBI(
     }
     dl.push_back(Gfx::SPEndDisplayList());
     // Fix up the display list, now that we know the length.
-    size_t dllen = dl.size() * GfxSize;
+    size_t dllen = headerlen + dl.size() * GfxSize;
     for (const auto &bo : batch_offsets) {
         const Batch &batch = *bo.second;
         dl[bo.first] =
@@ -84,8 +101,14 @@ std::vector<uint8_t> BatchMesh::EmitGBI(
     // Emit the data.
     size_t vtxlen = vertexes.size() * VtxSize;
     std::vector<uint8_t> data;
-    data.resize(dllen + vtxlen);
-    uint8_t *ptr = data.data();
+    data.resize(magiclen + headerlen + dllen + vtxlen);
+    const std::string_view magic{"Model"};
+    std::copy(magic.begin(), magic.end(), data.begin());
+    Header header{};
+    header.scale = cfg.game_scale;
+    header.Write(data.data() + magiclen);
+
+    uint8_t *ptr = data.data() + magiclen + headerlen;
     for (const Gfx &g : dl) {
         g.Write(ptr);
         ptr += GfxSize;
