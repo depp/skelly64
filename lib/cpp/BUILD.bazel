@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//base:copts.bzl", "CXXOPTS")
 
 cc_library(
@@ -38,4 +38,31 @@ cc_library(
         "bswap.hpp",
     ],
     visibility = ["//tools:__subpackages__"],
+)
+
+cc_library(
+    name = "expr",
+    srcs = [
+        "expr.cpp",
+    ],
+    hdrs = [
+        "expr.hpp",
+    ],
+    copts = CXXOPTS,
+    visibility = ["//tools:__subpackages__"],
+    deps = [
+        "@fmt",
+    ],
+)
+
+cc_binary(
+    name = "expr_eval",
+    srcs = [
+        "expr_eval.cpp",
+    ],
+    copts = CXXOPTS,
+    deps = [
+        ":expr",
+        "@fmt",
+    ],
 )
