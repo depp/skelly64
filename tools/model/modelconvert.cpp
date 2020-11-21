@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <err.h>
+#include <utility>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -14,6 +15,29 @@
 namespace modelconvert {
 namespace {
 
+// Wrapper for std::FILE.
+class File {
+    std::FILE *m_file;
+
+public:
+    File() : m_file{nullptr} {}
+    File(const File &) = delete;
+    File(File &&other) : m_file{other.m_file} { other.m_file = nullptr; }
+    explicit File(std::FILE *file) : m_file{file} {}
+    ~File() {
+        if (m_file != nullptr)
+            std::fclose(m_file);
+    }
+    File &operator=(const File &) = delete;
+    File &operator=(File &&other) {
+        std::swap(m_file, other.m_file);
+        return *this;
+    }
+    operator std::FILE *() { return m_file; }
+    operator bool() { return m_file != nullptr; }
+    bool operator!() { return m_file == nullptr; }
+};
+
 [[noreturn]] void FailUsage(std::string_view msg) {
     fmt::print(stderr, "Error: {}\n", msg);
     std::exit(64);
@@ -22,7 +46,7 @@ namespace {
 struct Args {
     std::string model;
     std::string output;
-    bool dump;
+    std::string output_stats;
 
     Config config;
 };
@@ -52,8 +76,8 @@ Args ParseArgs(int argc, char **argv) {
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");
-    fl.AddFlag(flag::SetValue(&args.dump, true), "dump",
-               "dump information about model", "");
+    fl.AddFlag(flag::String(&args.output_stats), "output-stats",
+               "write human-readable model information to FILE", "FILE");
     fl.AddBoolFlag(&args.config.use_primitive_color, "use-primitive-color",
                    "use primitive color from material");
     fl.AddBoolFlag(&args.config.use_normals, "use-normals",
@@ -69,6 +93,7 @@ Args ParseArgs(int argc, char **argv) {
     }
     FixPath(&args.model, wd);
     FixPath(&args.output, wd);
+    FixPath(&args.output_stats, wd);
     if (!std::isfinite(args.config.scale) || args.config.scale <= 0.0) {
         FailUsage("-scale must be a positive number");
     }
@@ -79,23 +104,31 @@ const char spaces[81] =
     "                                        "
     "                                        ";
 
-void Indent(int n) {
+void Indent(std::FILE *fp, int n) {
     while (n > 80) {
-        std::fwrite(spaces, 1, 80, stdout);
+        std::fwrite(spaces, 1, 80, fp);
     }
     if (n > 0) {
-        std::fwrite(spaces, 1, n, stdout);
+        std::fwrite(spaces, 1, n, fp);
     }
 }
 
-void VisitNode(aiNode *node, int indent = 0) {
-    Indent(indent);
-    fmt::print(stdout, "{} meshes={}\n", util::Quote(Str(node->mName)),
+void VisitNode(std::FILE *stats, aiNode *node, int indent = 2) {
+    Indent(stats, indent);
+    fmt::print(stats, "{} meshes={}\n", util::Quote(Str(node->mName)),
                node->mNumMeshes);
     for (aiNode **ptr = node->mChildren, **end = ptr + node->mNumChildren;
          ptr != end; ptr++) {
-        VisitNode(*ptr, indent + 2);
+        VisitNode(stats, *ptr, indent + 2);
     }
+}
+
+void MeshInfo(std::FILE *stats, const Mesh &mesh) {
+    fmt::print(stats, "Vertexes: {}\nTriangles: {}\n",
+               mesh.vertexes.vertexes.size(), mesh.triangles.size());
+    const std::array<int16_t, 3> min = mesh.bounds_min, max = mesh.bounds_max;
+    fmt::print(stats, "Bounds: ({}, {}, {}) ({}, {}, {})\n", min[0], min[1],
+               min[2], max[0], max[1], max[2]);
 }
 
 void WriteFile(const std::string &out, const std::vector<uint8_t> &data) {
@@ -117,6 +150,14 @@ void Main(int argc, char **argv) {
     Args args = ParseArgs(argc, argv);
     Assimp::Importer importer;
 
+    File stats;
+    if (!args.output_stats.empty()) {
+        stats = File{std::fopen(args.output_stats.c_str(), "w")};
+        if (!stats) {
+            err(1, "could not open '%s'", args.output_stats.c_str());
+        }
+    }
+
     const aiScene *scene = importer.ReadFile(
         args.model, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
     if (scene == nullptr) {
@@ -124,24 +165,24 @@ void Main(int argc, char **argv) {
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
     }
-    if (args.dump) {
-        VisitNode(scene->mRootNode);
+    if (stats) {
+        fmt::print(stats, "Nodes:\n");
+        VisitNode(stats, scene->mRootNode);
     }
     VertexSet verts;
 
-    Mesh mesh;
+    Mesh mesh{};
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
          ptr != end; ptr++) {
-        mesh.AddMesh(args.config, *ptr);
+        mesh.AddMesh(args.config, stats, *ptr);
     }
-    if (args.dump) {
-        fmt::print("verts = {}; tris = {};\n", mesh.vertexes.vertexes.size(),
-                   mesh.triangles.size());
+    if (stats) {
+        MeshInfo(stats, mesh);
     }
     BatchMesh bmesh = mesh.MakeBatches(32);
-    if (args.dump) {
-        bmesh.Dump();
+    if (stats) {
+        bmesh.Dump(stats);
     }
     std::vector<Material> materials;
     for (aiMaterial **ptr = scene->mMaterials,

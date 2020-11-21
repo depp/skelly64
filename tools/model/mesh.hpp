@@ -1,7 +1,9 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cstdio>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
@@ -96,9 +98,11 @@ struct Mesh {
     VertexSet vertexes;
     std::vector<Triangle> triangles;
 
+    std::array<int16_t, 3> bounds_min, bounds_max;
+
     // Add an Assimp mesh to the mesh, giving its faces the given material
     // index.
-    void AddMesh(const Config &cfg, aiMesh *mesh);
+    void AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh);
 
     // Convert the mesh into batches of triangle, where each batch fits
     BatchMesh MakeBatches(unsigned cache_size);
@@ -122,13 +126,48 @@ struct BatchMesh {
     std::vector<Vertex> vertexes;
     std::vector<Batch> batches;
 
-    // Dump mesh info to stdout.
-    void Dump() const;
+    // Dump mesh info to file.
+    void Dump(std::FILE *stats) const;
 
     // Emit as GBI commands and vertex data for the Nintendo 64. This assumes
     // that segment 1 points at the beginning of this data block.
     std::vector<uint8_t> EmitGBI(const Config &cfg,
                                  const std::vector<Material> &materials) const;
+};
+
+template <typename T, std::size_t N>
+struct VectorTraits {
+    using Vector = std::array<T, N>;
+    static Vector min_value() {
+        const T value = std::numeric_limits<T>::min();
+        Vector v;
+        for (size_t i = 0; i < N; i++) {
+            v[i] = value;
+        }
+        return v;
+    }
+    static Vector max_value() {
+        const T value = std::numeric_limits<T>::max();
+        Vector v;
+        for (size_t i = 0; i < N; i++) {
+            v[i] = value;
+        }
+        return v;
+    }
+    static Vector min(Vector x, Vector y) {
+        Vector v;
+        for (size_t i = 0; i < N; i++) {
+            v[i] = std::min(x[i], y[i]);
+        }
+        return v;
+    }
+    static Vector max(Vector x, Vector y) {
+        Vector v;
+        for (size_t i = 0; i < N; i++) {
+            v[i] = std::max(x[i], y[i]);
+        }
+        return v;
+    }
 };
 
 } // namespace modelconvert

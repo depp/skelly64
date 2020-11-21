@@ -23,9 +23,11 @@ namespace {
 
 } // namespace
 
-void Mesh::AddMesh(const Config &cfg, aiMesh *mesh) {
+void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
     unsigned nvert = mesh->mNumVertices;
     std::vector<Vertex> mverts(nvert, Vertex{});
+    using Vector = std::array<int16_t, 3>;
+    using Traits = VectorTraits<int16_t, 3>;
 
     // Get vertex positions.
     {
@@ -47,6 +49,26 @@ void Mesh::AddMesh(const Config &cfg, aiMesh *mesh) {
                 }
             }
             mverts[i].pos = ipos;
+        }
+    }
+
+    // Compute bounds.
+    {
+        Vector min = Traits::max_value(), max = Traits::min_value();
+        for (const Vertex &vec : mverts) {
+            min = Traits::min(min, vec.pos);
+            max = Traits::max(max, vec.pos);
+        }
+        if (stats != nullptr) {
+            fmt::print(stats, "Submesh bounds: ({}, {}, {}) ({}, {}, {})\n",
+                       min[0], min[1], min[2], max[0], max[1], max[2]);
+        }
+        if (vertexes.vertexes.empty()) {
+            bounds_min = min;
+            bounds_max = max;
+        } else {
+            bounds_min = Traits::min(bounds_min, min);
+            bounds_max = Traits::max(bounds_max, max);
         }
     }
 

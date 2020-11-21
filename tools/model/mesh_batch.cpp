@@ -251,22 +251,22 @@ BatchMesh Mesh::MakeBatches(unsigned cache_size) {
     return bmesh;
 }
 
-void BatchMesh::Dump() const {
-    fmt::print("Vertexes:\n");
+void BatchMesh::Dump(std::FILE *stats) const {
+    fmt::print(stats, "Vertexes:\n");
     for (size_t i = 0; i < vertexes.size(); i++) {
         const Vertex &v = vertexes[i];
-        fmt::print("  {:3d}: ({:+6d}, {:+6d}, {:+6d})\n", i, v.pos[0], v.pos[1],
-                   v.pos[2]);
+        fmt::print(stats, "  {:3d}: ({:+6d}, {:+6d}, {:+6d})\n", i, v.pos[0],
+                   v.pos[1], v.pos[2]);
     }
-    fmt::print("Batches:\n");
+    fmt::print(stats, "Batches:\n");
     for (size_t i = 0; i < batches.size(); i++) {
         const Batch &batch = batches[i];
-        fmt::print("  Batch {}\n", i);
-        fmt::print("    count={} src={} dest={}\n", batch.vert_count,
+        fmt::print(stats, "  Batch {}\n", i);
+        fmt::print(stats, "    count={} src={} dest={}\n", batch.vert_count,
                    batch.vert_src, batch.vert_dest);
         for (const Triangle &tri : batch.triangles) {
-            fmt::print("    tri {} {} {}\n", tri.vertex[0], tri.vertex[1],
-                       tri.vertex[2]);
+            fmt::print(stats, "    tri {} {} {}\n", tri.vertex[0],
+                       tri.vertex[1], tri.vertex[2]);
         }
     }
 }
