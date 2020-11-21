@@ -44,13 +44,16 @@ cc_library(
     name = "expr",
     srcs = [
         "expr.cpp",
+        "expr_flag.cpp",
     ],
     hdrs = [
         "expr.hpp",
+        "expr_flag.hpp",
     ],
     copts = CXXOPTS,
     visibility = ["//tools:__subpackages__"],
     deps = [
+        ":flag",
         "@fmt",
     ],
 )
