@@ -24,6 +24,27 @@ void String::Parse(std::optional<std::string_view> arg) {
 
 // =============================================================================
 
+FlagArgument Int::Argument() const {
+    return FlagArgument::Required;
+}
+void Int::Parse(std::optional<std::string_view> arg) {
+    assert(arg.has_value());
+    std::string tmp{*arg};
+    size_t pos;
+    int value;
+    try {
+        value = std::stoi(tmp, &pos);
+    } catch (std::invalid_argument &ex) {
+        throw UsageError("expected an integer");
+    } catch (std::out_of_range &ex) { throw UsageError("integer too large"); }
+    if (pos != tmp.size()) {
+        throw UsageError("expected an integer");
+    }
+    *m_ptr = value;
+}
+
+// =============================================================================
+
 FlagArgument Float32::Argument() const {
     return FlagArgument::Required;
 }

@@ -84,6 +84,17 @@ public:
     void Parse(std::optional<std::string_view> arg) override;
 };
 
+// Integer valued flag.
+class Int : public FlagBase {
+    int *m_ptr;
+
+public:
+    explicit Int(int *ptr) : m_ptr{ptr} {}
+
+    FlagArgument Argument() const override;
+    void Parse(std::optional<std::string_view> arg) override;
+};
+
 // Float32 valued flag.
 class Float32 : public FlagBase {
     float *m_ptr;
