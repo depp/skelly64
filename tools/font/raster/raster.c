@@ -193,7 +193,7 @@ static int histo_pixel_size(struct histo *restrict histo, long em_size) {
     // So we only evaluate different ways to divide up the em.
     double invx = 1.0 / em_size;
     int best_scale = 0;
-    double best_cost = INFINITY;
+    double best_cost = HUGE_VAL;
     for (int i = 4; i <= 64; i++) {
         double scale = (double)i * invx;
         // Multiply by scale to weight more heavily towards smaller scales.
