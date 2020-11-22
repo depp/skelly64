@@ -50,7 +50,6 @@ struct Args {
     std::string output;
     std::string output_stats;
     util::Expr::Ref scale;
-    int precision;
 
     Config config;
 };
@@ -77,7 +76,6 @@ Args ParseArgs(int argc, char **argv) {
     }
     Args args{};
     flag::Parser fl;
-    args.precision = 14;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");
@@ -89,8 +87,6 @@ Args ParseArgs(int argc, char **argv) {
                    "use vertex normals");
     fl.AddFlag(util::ExprFlag(&args.scale), "scale", "amount to scale model",
                "EXPR");
-    fl.AddFlag(flag::Int(&args.precision), "precision",
-               "bits of precision for vertex position", "N");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -103,11 +99,6 @@ Args ParseArgs(int argc, char **argv) {
     FixPath(&args.output_stats, wd);
     if (!args.scale) {
         FailUsage("missing required flag -scale");
-    }
-    if (args.precision < 2) {
-        FailUsage("-precision must be at least 2");
-    } else if (args.precision > 16) {
-        FailUsage("-precision cannot be larger than 16");
     }
     return args;
 }
@@ -214,21 +205,10 @@ void Main(int argc, char **argv) {
         if (stats) {
             fmt::print(stats, "Bounding box: ({}, {}, {})\n", max[0], max[1],
                        max[2]);
+            double max3 = std::max(std::max(max[0], max[1]), max[2]);
+            fmt::print(stats, "Maximum absolute coordinate: {}\n", max3);
         }
-        double max3 = std::max(std::max(max[0], max[1]), max[2]);
-        double import_scale = 1.0;
-        double game_scale = 1.0;
-        if (max3 > 0.0) {
-            double target_max = (1 << (args.precision - 1)) - 1;
-            import_scale = target_max / max3;
-            game_scale = scale * max3 / target_max;
-        }
-        cfg.import_scale = import_scale;
-        cfg.game_scale = game_scale;
-        if (stats) {
-            fmt::print(stats, "Import scale: {}\n", import_scale);
-            fmt::print(stats, "Game scale: {}\n", game_scale);
-        }
+        cfg.scale = scale;
     }
     if (stats) {
         fmt::print(stats, "Nodes:\n");

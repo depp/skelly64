@@ -23,19 +23,14 @@ Material Material::Default() {
 namespace {
 
 struct Header {
-    float scale;
-
-    void Write(uint8_t *ptr) const {
-        uint32_t x = util::BSwapPutF32(scale);
-        std::memcpy(ptr, &x, sizeof(x));
-    }
+    void Write(uint8_t *ptr) const { (void)ptr; }
 };
 
 } // namespace
 
 std::vector<uint8_t> BatchMesh::EmitGBI(
     const Config &cfg, const std::vector<Material> &materials) const {
-    const size_t headerlen = 8;
+    const size_t headerlen = 0;
     const size_t magiclen = 16;
 
     // Emit the display list.
@@ -105,7 +100,6 @@ std::vector<uint8_t> BatchMesh::EmitGBI(
     const std::string_view magic{"Model"};
     std::copy(magic.begin(), magic.end(), data.begin());
     Header header{};
-    header.scale = cfg.game_scale;
     header.Write(data.data() + magiclen);
 
     uint8_t *ptr = data.data() + magiclen + headerlen;
