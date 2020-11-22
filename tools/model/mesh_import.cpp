@@ -79,8 +79,9 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
             const aiVector3D fnorm = normarr[i];
             std::array<int8_t, 3> inorm;
             for (int j = 0; j < 3; j++) {
-                // 11.7.2 Normal Vector Normalization: scale to 127.
-                const float v = fnorm[j] * 127.0f;
+                // 11.7.2 Normal Vector Normalization: limit to 127, but Q&A 3D
+                // Calculations Q3 explains that 128 is 1.0.
+                const float v = fnorm[j] * 128.0f;
                 int iv;
                 if (v > std::numeric_limits<int8_t>::min()) {
                     if (v < std::numeric_limits<int8_t>::max()) {
