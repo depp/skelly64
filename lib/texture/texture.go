@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"math"
 )
 
 // MemSize is the maximum size in memory of a texture.
@@ -16,23 +17,26 @@ func ToRGBA(im image.Image) *image.RGBA {
 	}
 	b := im.Bounds()
 	ri := image.NewRGBA(b)
-	if im, ok := im.(*image.RGBA64); ok {
-		xsize := b.Max.X - b.Min.X
-		ysize := b.Max.Y - b.Min.Y
-		for y := 0; y < ysize; y++ {
-			irow := im.Pix[y*im.Stride : y*im.Stride+xsize*8 : y*im.Stride+xsize*8]
-			orow := ri.Pix[y*ri.Stride : y*ri.Stride+xsize*4 : y*ri.Stride+xsize*4]
-			for x := 0; x < xsize*4; x++ {
-				orow[x] = irow[x*2]
-			}
-		}
-	} else {
-		draw.Draw(ri, b, im, b.Min, draw.Src)
-	}
+	draw.Draw(ri, b, im, b.Min, draw.Src)
 	return ri
 }
 
-// ToRGBA16 converts an RGBA image to RGBA64 format.
+var srgbToLinear [256]uint16
+
+func init() {
+	for i := 0; i < 256; i++ {
+		x := (float64(i) + 0.5) * (1.0 / 256)
+		if x < 0.04045 {
+			x *= 1.0 / 12.92
+		} else {
+			x = math.Pow((x+0.055)*(1.0/1.055), 2.4)
+		}
+		x *= 1 << 16
+		srgbToLinear[i] = uint16(x)
+	}
+}
+
+// ToRGBA16 converts an RGBA image to a linear RGBA64 format.
 func ToRGBA16(im *image.RGBA) *image.RGBA64 {
 	b := im.Rect
 	xsize := b.Max.X - b.Min.X
@@ -41,9 +45,42 @@ func ToRGBA16(im *image.RGBA) *image.RGBA64 {
 	for y := 0; y < ysize; y++ {
 		irow := im.Pix[y*im.Stride : y*im.Stride+xsize*4 : y*im.Stride+xsize*4]
 		orow := ri.Pix[y*ri.Stride : y*ri.Stride+xsize*8 : y*ri.Stride+xsize*8]
-		for x := 0; x < xsize*4; x++ {
-			orow[x*2] = irow[x]
-			orow[x*2+1] = irow[x]
+		for x := 0; x < xsize; x++ {
+			ipix := irow[x*4 : x*4+4 : x*4+4]
+			opix := orow[x*8 : x*8+8 : x*8+8]
+			r := srgbToLinear[ipix[0]]
+			g := srgbToLinear[ipix[1]]
+			b := srgbToLinear[ipix[2]]
+			a := ipix[3]
+			opix[0] = byte(r >> 8)
+			opix[1] = byte(r)
+			opix[2] = byte(g >> 8)
+			opix[3] = byte(g)
+			opix[4] = byte(b >> 8)
+			opix[5] = byte(b)
+			opix[6] = a
+			opix[7] = 0x80
+		}
+	}
+	return ri
+}
+
+// ToRGBA8 converts an RGBA64 image to RGBA format.
+func ToRGBA8(im *image.RGBA64) *image.RGBA {
+	b := im.Rect
+	xsize := b.Max.X - b.Min.X
+	ysize := b.Max.Y - b.Min.Y
+	ri := image.NewRGBA(b)
+	for y := 0; y < ysize; y++ {
+		irow := im.Pix[y*im.Stride : y*im.Stride+xsize*8 : y*im.Stride+xsize*8]
+		orow := ri.Pix[y*ri.Stride : y*ri.Stride+xsize*4 : y*ri.Stride+xsize*4]
+		for x := 0; x < xsize; x++ {
+			ipix := irow[x*8 : x*8+8 : x*8+8]
+			opix := orow[x*4 : x*4+4 : x*4+4]
+			opix[0] = ipix[0]
+			opix[1] = ipix[2]
+			opix[2] = ipix[4]
+			opix[3] = ipix[6]
 		}
 	}
 	return ri

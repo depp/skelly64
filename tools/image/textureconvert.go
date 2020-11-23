@@ -65,7 +65,7 @@ func mainE() error {
 		if err != nil {
 			return err
 		}
-		img = texture.ToRGBA(i16)
+		img = texture.ToRGBA8(i16)
 	}
 	if err := texture.ToSizedFormat(tfmt, img); err != nil {
 		return err
