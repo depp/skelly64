@@ -16,7 +16,36 @@ func ToRGBA(im image.Image) *image.RGBA {
 	}
 	b := im.Bounds()
 	ri := image.NewRGBA(b)
-	draw.Draw(ri, b, im, b.Min, draw.Src)
+	if im, ok := im.(*image.RGBA64); ok {
+		xsize := b.Max.X - b.Min.X
+		ysize := b.Max.Y - b.Min.Y
+		for y := 0; y < ysize; y++ {
+			irow := im.Pix[y*im.Stride : y*im.Stride+xsize*8 : y*im.Stride+xsize*8]
+			orow := ri.Pix[y*ri.Stride : y*ri.Stride+xsize*4 : y*ri.Stride+xsize*4]
+			for x := 0; x < xsize*4; x++ {
+				orow[x] = irow[x*2]
+			}
+		}
+	} else {
+		draw.Draw(ri, b, im, b.Min, draw.Src)
+	}
+	return ri
+}
+
+// ToRGBA16 converts an RGBA image to RGBA64 format.
+func ToRGBA16(im *image.RGBA) *image.RGBA64 {
+	b := im.Rect
+	xsize := b.Max.X - b.Min.X
+	ysize := b.Max.Y - b.Min.Y
+	ri := image.NewRGBA64(b)
+	for y := 0; y < ysize; y++ {
+		irow := im.Pix[y*im.Stride : y*im.Stride+xsize*4 : y*im.Stride+xsize*4]
+		orow := ri.Pix[y*ri.Stride : y*ri.Stride+xsize*8 : y*ri.Stride+xsize*8]
+		for x := 0; x < xsize*4; x++ {
+			orow[x*2] = irow[x]
+			orow[x*2+1] = irow[x]
+		}
+	}
 	return ri
 }
 

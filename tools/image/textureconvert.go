@@ -14,6 +14,8 @@ import (
 	"thornmarked/tools/texture"
 )
 
+const tmemSize = 4096
+
 func readPNG(filename string) (image.Image, error) {
 	ext := filepath.Ext(filename)
 	if !strings.EqualFold(ext, ".png") {
@@ -57,6 +59,14 @@ func mainE() error {
 		return err
 	}
 	img := texture.ToRGBA(inimg)
+	{
+		i16 := texture.ToRGBA16(img)
+		i16, err := texture.AutoScale(i16, tmemSize, tfmt.Size.Size())
+		if err != nil {
+			return err
+		}
+		img = texture.ToRGBA(i16)
+	}
 	if err := texture.ToSizedFormat(tfmt, img); err != nil {
 		return err
 	}

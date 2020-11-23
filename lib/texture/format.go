@@ -101,6 +101,15 @@ func (s *PixelSize) Set(st string) error {
 	return fmt.Errorf("unsupported pixel size: %d", sz)
 }
 
+// Size returns the size of the pixel format in bits.
+func (s PixelSize) Size() int {
+	i := uint32(s)
+	if i < uint32(len(pixelsizes)) {
+		return int(pixelsizes[i])
+	}
+	return 0
+}
+
 // A SizedFormat is a combination pixel format and size.
 type SizedFormat struct {
 	Format Format
