@@ -70,11 +70,14 @@ func mainE() error {
 	if err := texture.ToSizedFormat(tfmt, img); err != nil {
 		return err
 	}
+	fdata := make([]byte, 16)
+	copy(fdata, "Texture")
 	data, err := texture.Pack(tfmt, img)
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(output, data, 0666); err != nil {
+	fdata = append(fdata, data...)
+	if err := ioutil.WriteFile(output, fdata, 0666); err != nil {
 		return err
 	}
 	return nil

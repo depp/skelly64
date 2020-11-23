@@ -51,18 +51,21 @@ const (
 	typeData
 	typeTrack
 	typeModel
+	typeTexture
 )
 
 var types = [...]string{
-	typeData:  "data",
-	typeTrack: "track",
-	typeModel: "model",
+	typeData:    "data",
+	typeTrack:   "track",
+	typeModel:   "model",
+	typeTexture: "texture",
 }
 
 var typeSlotCount = [...]int{
-	typeData:  1,
-	typeTrack: 2,
-	typeModel: 1,
+	typeData:    1,
+	typeTrack:   2,
+	typeModel:   1,
+	typeTexture: 1,
 }
 
 func parseType(s string) (t datatype, err error) {
@@ -227,6 +230,11 @@ func getData(e *entry, data []byte) ([][]byte, error) {
 		return [][]byte{tr.Codebook, tr.Data}, nil
 	case typeModel:
 		if err := checkMagic(data, "Model", 16); err != nil {
+			return nil, err
+		}
+		return [][]byte{data[16:]}, nil
+	case typeTexture:
+		if err := checkMagic(data, "Texture", 16); err != nil {
 			return nil, err
 		}
 		return [][]byte{data[16:]}, nil
