@@ -49,6 +49,7 @@ struct Args {
     std::string model;
     std::string output;
     std::string output_stats;
+    util::Expr::Ref meter;
     util::Expr::Ref scale;
 
     Config config;
@@ -85,6 +86,8 @@ Args ParseArgs(int argc, char **argv) {
                    "use primitive color from material");
     fl.AddBoolFlag(&args.config.use_normals, "use-normals",
                    "use vertex normals");
+    fl.AddFlag(util::ExprFlag(&args.meter), "meter", "length of a meter",
+               "EXPR");
     fl.AddFlag(util::ExprFlag(&args.scale), "scale", "amount to scale model",
                "EXPR");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
@@ -174,6 +177,10 @@ void Main(int argc, char **argv) {
     }
     {
         util::Expr::Env env;
+        if (args.meter) {
+            double meter = args.meter->Eval(env);
+            env.emplace("meter", meter);
+        }
         double scale = args.scale->Eval(env);
         if (!std::isfinite(scale) || scale <= 0) {
             fmt::print(stderr, "Error: scale must be a positive number\n");
