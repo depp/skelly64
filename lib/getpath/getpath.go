@@ -36,3 +36,21 @@ func GetPath(filename string) string {
 func GetTool(filename string) string {
 	return filepath.Join(runfiles, filename)
 }
+
+// Relative returns the relative path from base to target, if target is a
+// descendant of base. Otherwise, returns the empty string.
+func Relative(base, target string) string {
+	if len(target) >= len(base) && target[:len(base)] == base {
+		if len(target) == len(base) {
+			return "."
+		}
+		if target[len(base)] == byte(filepath.Separator) {
+			rel := target[len(base)+1:]
+			if rel == "" {
+				rel = "."
+			}
+			return rel
+		}
+	}
+	return ""
+}
