@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 	"thornmarked/tools/getpath"
 )
 
@@ -56,6 +57,20 @@ type options struct {
 	bootcode string
 	program  string
 	pak      string
+	region   byte
+	savetype byte
+	name     string
+}
+
+// Taken from EverDrive 64 OS save_db.txt.
+var edSaveTypes = map[string]byte{
+	"none":        0,
+	"eeprom_4k":   1,
+	"eeprom_16k":  2,
+	"sram_256k":   3,
+	"sram_768k":   4,
+	"flash_1024k": 5,
+	"sram_128k":   6,
 }
 
 func parseArgs() (opts options, err error) {
@@ -63,6 +78,9 @@ func parseArgs() (opts options, err error) {
 	bootcode := flag.String("bootcode", "", "path to boot code file")
 	program := flag.String("program", "", "path to input ELF program")
 	pak := flag.String("pak", "", "path to input pak file data")
+	region := flag.String("region", "E", "ROM region code")
+	edSaveType := flag.String("everdrive-save-type", "", "EverDrive 64 save type")
+	name := flag.String("name", "", "program name")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return opts, fmt.Errorf("unexpected argument: %q", args[0])
@@ -80,6 +98,28 @@ func parseArgs() (opts options, err error) {
 		return opts, errors.New("missing required flag -program")
 	}
 	opts.pak = getpath.GetPath(*pak)
+	if len(*region) != 1 {
+		return opts, fmt.Errorf("invalid region: %q (length = %d, should be one character)", *region, len(*region))
+	}
+	opts.region = (*region)[0]
+	if *edSaveType != "" {
+		st, ok := edSaveTypes[strings.ToLower(*edSaveType)]
+		if !ok {
+			var types []string
+			for t := range edSaveTypes {
+				types = append(types, t)
+			}
+			return opts, fmt.Errorf("invalid EverDrive 64 save type %q, valid choices are %s", *edSaveType, strings.Join(types, ", "))
+		}
+		opts.savetype = st
+	}
+	if *name != "" {
+		const maxName = 20
+		if len(*name) > maxName {
+			return opts, fmt.Errorf("name too long: %q (%d bytes, must be no longer than maxName)", *name, len(*name))
+		}
+		opts.name = *name
+	}
 	return opts, nil
 }
 
@@ -202,7 +242,13 @@ func mainE() error {
 	copy(data[len(prog):], pakdata)
 	copy(data[bootOffset:], bootcode)
 	cksum := checksum(data[loadOffset : loadOffset+loadSize])
-	copy(data[0x10:], cksum[:])
+	copy(data[0x10:0x18], cksum[:])
+	copy(data[0x20:], opts.name)
+	data[0x3b] = 'N' // Cartridge
+	data[0x3c] = 'E' // ED = EverDrive
+	data[0x3d] = 'D'
+	data[0x3e] = opts.region
+	data[0x3f] = opts.savetype
 
 	return ioutil.WriteFile(opts.output, data, 0666)
 }
