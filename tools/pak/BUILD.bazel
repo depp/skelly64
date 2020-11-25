@@ -5,8 +5,9 @@ go_binary(
     srcs = [
         "makepak.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//tools/audio",
+        "//tools/getpath",
     ],
-    visibility = ["//visibility:public"],
 )

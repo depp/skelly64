@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"thornmarked/tools/audio"
+	"thornmarked/tools/getpath"
 )
 
 type stringArrayValue struct {
@@ -293,33 +294,44 @@ func writeData(filename string, mn *manifest) error {
 
 func mainE() error {
 	var dirs []string
-	flag.Var(&stringArrayValue{value: &dirs}, "dir", "search for files in ")
+	flag.Var(&stringArrayValue{value: &dirs}, "dir", "search for files in")
+	manifestFlag := flag.String("manifest", "", "input manifest file")
+	dataFlag := flag.String("data-out", "", "input manifest file")
+	headerFlag := flag.String("header-out", "", "output header file")
 	flag.Parse()
-	args := flag.Args()
-	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr,
-			"Usage: makepak [-dir <dir>] <manifest> <data-out> <header-out>")
+	if *manifestFlag == "" {
+		fmt.Fprint(os.Stderr,
+			"Usage:\n"+
+				"  makepak [-dir <dir> ...] -manifest=<manifest>\n"+
+				"          -data-out=<file> -header-out=<file>\n")
 		os.Exit(1)
 	}
-	if len(args) != 3 {
-		return fmt.Errorf("got %d arguments, expect exactly 3", len(args))
+	if args := flag.Args(); len(args) != 0 {
+		return fmt.Errorf("unexpected argument: %q", args[0])
 	}
-	inManifest := args[0]
-	outData := args[1]
-	outHeader := args[2]
+	inManifest := getpath.GetPath(*manifestFlag)
+	outData := getpath.GetPath(*dataFlag)
+	outHeader := getpath.GetPath(*headerFlag)
+	if inManifest == "" {
+		return errors.New("missing required flag -manifest")
+	}
 
 	mn, err := readManifest(inManifest)
 	if err != nil {
 		return err
 	}
-	if err := resolveInputs(mn, dirs); err != nil {
-		return err
+	if outHeader != "" {
+		if err := writeHeader(outHeader, mn); err != nil {
+			return err
+		}
 	}
-	if err := writeHeader(outHeader, mn); err != nil {
-		return err
-	}
-	if err := writeData(outData, mn); err != nil {
-		return err
+	if outData != "" {
+		if err := resolveInputs(mn, dirs); err != nil {
+			return err
+		}
+		if err := writeData(outData, mn); err != nil {
+			return err
+		}
 	}
 	return nil
 }
