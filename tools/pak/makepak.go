@@ -26,6 +26,9 @@ type stringArrayValue struct {
 }
 
 func (v *stringArrayValue) String() string {
+	if v.value == nil {
+		return ""
+	}
 	return strings.Join(*v.value, ",")
 }
 
@@ -296,8 +299,8 @@ func mainE() error {
 	var dirs []string
 	flag.Var(&stringArrayValue{value: &dirs}, "dir", "search for files in")
 	manifestFlag := flag.String("manifest", "", "input manifest file")
-	dataFlag := flag.String("data-out", "", "input manifest file")
-	headerFlag := flag.String("header-out", "", "output header file")
+	dataFlag := flag.String("out-data", "", "input manifest file")
+	headerFlag := flag.String("out-header", "", "output header file")
 	flag.Parse()
 	if *manifestFlag == "" {
 		fmt.Fprint(os.Stderr,
