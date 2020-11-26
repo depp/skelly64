@@ -1,6 +1,7 @@
 package texture
 
 import (
+	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -9,6 +10,21 @@ import (
 
 // MemSize is the maximum size in memory of a texture.
 const MemSize = 4096
+
+// A Layout describes the texture layout.
+type Layout uint32
+
+const (
+	// Linear is the ordinary linear texture layout, with rows of pixels packed
+	// after each other.
+	Linear Layout = iota
+
+	// Native is the texture layout that the texture unit on the RDP uses. The
+	// exact layout depends on the size, and is described in section 13.8 of the
+	// programming manual. In general, texels are reordered so that any 2x2
+	// block of texels can be fetched in a single cycle.
+	Native
+)
 
 // ToRGBA converts an image to RGBA format.
 func ToRGBA(im image.Image) *image.RGBA {
@@ -124,13 +140,39 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA) error {
 	return nil
 }
 
+// swizzle converts between linear and native layouts for 4-bit, 8-bit, and
+// 16-bit per pixel size textures.
+func swizzle(data []byte, stride int) {
+	if stride&7 != 0 {
+		panic("swizzle requires stride which is a multiple of 8")
+	}
+	// Iterate over the odd-numbered rows.
+	var tmp [4]byte
+	for len(data) >= stride*2 {
+		row := data[stride : stride*2 : stride*2]
+		data = data[stride*2:]
+		for len(row) >= 8 {
+			block := row[0:8:8]
+			row = row[8:]
+			copy(tmp[:], block[:4])
+			copy(block[:4], block[4:])
+			copy(block[4:], tmp[:])
+		}
+	}
+}
+
 // Pack packs a texture into binary data.
-func Pack(f SizedFormat, im *image.RGBA) ([]byte, error) {
+func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 	sx := im.Rect.Max.X - im.Rect.Min.X
 	sy := im.Rect.Max.Y - im.Rect.Min.Y
 	ss := im.Stride
 	switch f.Size {
 	case Size32:
+		if layout != Linear {
+			// Reason for this: unlike smaller formats, 32 bpp textures must be
+			// split across the low & high banks of TMEM.
+			return nil, errors.New("native layout unsupported for 32 bpp textures")
+		}
 		ds := sx * 4
 		r := make([]byte, sy*ds)
 		if f.Format != RGBA {
@@ -144,6 +186,9 @@ func Pack(f SizedFormat, im *image.RGBA) ([]byte, error) {
 		return r, nil
 	case Size16:
 		ds := sx * 2
+		if layout == Native {
+			ds = (ds + 7) &^ 7
+		}
 		r := make([]byte, sy*ds)
 		switch f.Format {
 		case RGBA:
@@ -171,9 +216,15 @@ func Pack(f SizedFormat, im *image.RGBA) ([]byte, error) {
 		default:
 			return nil, fmt.Errorf("invalid format: %s", f)
 		}
+		if layout == Native {
+			swizzle(r, ds)
+		}
 		return r, nil
 	case Size8:
 		ds := sx
+		if layout == Native {
+			ds = (ds + 7) &^ 7
+		}
 		r := make([]byte, sy*ds)
 		switch f.Format {
 		case IA:
@@ -195,12 +246,18 @@ func Pack(f SizedFormat, im *image.RGBA) ([]byte, error) {
 		default:
 			return nil, fmt.Errorf("invalid format: %s", f)
 		}
+		if layout == Native {
+			swizzle(r, ds)
+		}
 		return r, nil
 	case Size4:
 		if sx&1 != 0 {
 			return nil, fmt.Errorf("invalid width for 4-bit texture: %d, width is not even", sx)
 		}
 		ds := sx / 2
+		if layout == Native {
+			ds = (ds + 7) &^ 7
+		}
 		r := make([]byte, sy*ds)
 		tmp := make([]byte, sx)
 		for y := 0; y < sy; y++ {
@@ -221,6 +278,9 @@ func Pack(f SizedFormat, im *image.RGBA) ([]byte, error) {
 			for x := 0; x < sx/2; x++ {
 				dr[x] = (tmp[x*2] << 4) | (tmp[x*2+1] & 15)
 			}
+		}
+		if layout == Native {
+			swizzle(r, ds)
 		}
 		return r, nil
 	default:

@@ -56,16 +56,65 @@ func Scale(im *image.RGBA64, xbits, ybits int) (*image.RGBA64, error) {
 	return out, nil
 }
 
+// CreateMipMaps creates the mipmap levels for an image.
+func CreateMipMaps(im *image.RGBA64) ([]*image.RGBA64, error) {
+	var tiles []*image.RGBA64
+	xsize := im.Rect.Max.X - im.Rect.Min.X
+	ysize := im.Rect.Max.Y - im.Rect.Min.Y
+	for xsize > 1 || ysize > 1 {
+		tiles = append(tiles, im)
+		var xscale, yscale int
+		if xsize > 1 {
+			xscale = 1
+			xsize >>= 1
+		}
+		if ysize > 1 {
+			yscale = 1
+			ysize >>= 1
+		}
+		var err error
+		im, err = Scale(im, xscale, yscale)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return append(tiles, im), nil
+}
+
+func tileSize(xsize, ysize, bits int) int {
+	stride := ((xsize * bits >> 3) + 7) &^ 7
+	return stride * ysize
+}
+
+func mipmapSize(xsize, ysize, bits int) int {
+	var bytes int
+	for xsize > 1 || ysize > 1 {
+		bytes += tileSize(xsize, ysize, bits)
+		if xsize > 1 {
+			xsize >>= 1
+		}
+		if ysize > 1 {
+			ysize >>= 1
+		}
+	}
+	bytes += tileSize(1, 1, bits)
+	return bytes
+}
+
 // AutoScale scales the image to fit within the given number of bytes. The
 // number of bits per pixel is given in 'bits'.
-func AutoScale(im *image.RGBA64, maxbytes, bits int) (*image.RGBA64, error) {
+func AutoScale(im *image.RGBA64, maxbytes, bits int, mipmap bool) (*image.RGBA64, error) {
 	b := im.Rect
 	xsize := b.Max.X - b.Min.X
 	ysize := b.Max.Y - b.Min.Y
 	var xscale, yscale int
 	for {
-		stride := ((xsize * bits >> 3) + 7) &^ 7
-		bytes := stride * ysize
+		var bytes int
+		if mipmap {
+			bytes = mipmapSize(xsize, ysize, bits)
+		} else {
+			bytes = tileSize(xsize, ysize, bits)
+		}
 		if bytes <= maxbytes {
 			return Scale(im, xscale, yscale)
 		}

@@ -61,7 +61,7 @@ func makeAssetTextures(fn *font, tf texture.SizedFormat) ([]byte, error) {
 		sy := t.Rect.Max.Y - t.Rect.Min.Y
 		binary.BigEndian.PutUint16(rec[0:2], uint16(sx))
 		binary.BigEndian.PutUint16(rec[2:4], uint16(sy))
-		d, err := texture.Pack(tf, t)
+		d, err := texture.Pack(t, tf, texture.Linear)
 		if err != nil {
 			return nil, err
 		}

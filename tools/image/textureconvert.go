@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"thornmarked/tools/getpath"
 	"thornmarked/tools/texture"
 )
 
@@ -33,51 +34,85 @@ func readPNG(filename string) (image.Image, error) {
 	return im, nil
 }
 
-func mainE() error {
-	outFlag := flag.String("output", "", "write output to `file`")
-	var tfmt texture.SizedFormat
-	flag.Var(&tfmt, "format", "use texture format `fmt.size` (e.g. rgba.16)")
-	flag.Parse()
-	args := flag.Args()
-	if len(args) == 0 {
-		return errors.New("missing image argument")
-	}
-	if len(args) != 1 {
-		return fmt.Errorf("got %d args, expected exactly 1", len(args))
-	}
-	output := *outFlag
-	if output == "" {
-		return errors.New("missing required -output flag")
-	}
-	if tfmt.Format == 0 {
-		return errors.New("missing required -format flag")
-	}
-	input := args[0]
+type options struct {
+	output string
+	input  string
+	format texture.SizedFormat
+	layout texture.Layout
+	mipmap bool
+}
 
-	inimg, err := readPNG(input)
+func parseArgs() (opts options, err error) {
+	output := flag.String("output", "", "write output to `file`")
+	input := flag.String("input", "", "read input texture")
+	native := flag.Bool("native", false, "use native TMEM texture layout")
+	flag.BoolVar(&opts.mipmap, "mipmap", false, "generate mipmaps")
+	flag.Var(&opts.format, "format", "use texture format `fmt.size` (e.g. rgba.16)")
+	flag.Parse()
+	if args := flag.Args(); len(args) != 0 {
+		return opts, fmt.Errorf("unexpected argument: %q", args[0])
+	}
+	opts.output = getpath.GetPath(*output)
+	if opts.output == "" {
+		return opts, errors.New("missing required flag -output")
+	}
+	opts.input = getpath.GetPath(*input)
+	if opts.input == "" {
+		return opts, errors.New("missing required flag -input")
+	}
+	if *native {
+		opts.layout = texture.Native
+	} else {
+		opts.layout = texture.Linear
+	}
+	return opts, nil
+}
+
+func mainE() error {
+	opts, err := parseArgs()
+	if err != nil {
+		return err
+	}
+
+	// Load image as RGBA with 8 bits per sample.
+	inimg, err := readPNG(opts.input)
 	if err != nil {
 		return err
 	}
 	img := texture.ToRGBA(inimg)
-	{
-		i16 := texture.ToRGBA16(img)
-		i16, err := texture.AutoScale(i16, tmemSize, tfmt.Size.Size())
-		if err != nil {
-			return err
-		}
-		img = texture.ToRGBA8(i16)
-	}
-	if err := texture.ToSizedFormat(tfmt, img); err != nil {
-		return err
-	}
-	fdata := make([]byte, 16)
-	copy(fdata, "Texture")
-	data, err := texture.Pack(tfmt, img)
+
+	// Create image tiles at sizes that fit in TMEM.
+	i16 := texture.ToRGBA16(img)
+	i16, err = texture.AutoScale(i16, tmemSize, opts.format.Size.Size(), opts.mipmap)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not scarle texture: %v", err)
 	}
-	fdata = append(fdata, data...)
-	if err := ioutil.WriteFile(output, fdata, 0666); err != nil {
+	var tiles []*image.RGBA64
+	if opts.mipmap {
+		tiles, err = texture.CreateMipMaps(i16)
+		if err != nil {
+			return fmt.Errorf("could not create mipmaps: %v", err)
+		}
+	} else {
+		tiles = []*image.RGBA64{i16}
+	}
+
+	// Convert texture to desired format and pack into contiguous block.
+	data := make([]byte, 16)
+	copy(data, "Texture")
+	for _, tile := range tiles {
+		img := texture.ToRGBA8(tile)
+		if err := texture.ToSizedFormat(opts.format, img); err != nil {
+			return fmt.Errorf("could not convert to %s: %v", opts.format, err)
+		}
+		tdata, err := texture.Pack(img, opts.format, opts.layout)
+		if err != nil {
+			return fmt.Errorf("could not pack texture: %v", err)
+		}
+		data = append(data, tdata...)
+	}
+
+	if err := ioutil.WriteFile(opts.output, data, 0666); err != nil {
 		return err
 	}
 	return nil
