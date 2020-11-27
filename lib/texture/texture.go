@@ -91,9 +91,6 @@ func init() {
 		}
 	}
 	copy(bayer[:], matrix)
-	for x := 0; x < 16; x++ {
-		fmt.Println(bayer[x*16 : x*16+16])
-	}
 }
 
 // ToRGBA converts an image to RGBA format.
@@ -233,7 +230,7 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA, dithering Dithering) error {
 						cur[x+2] += (d * 7) >> 4
 						next[x] += (d * 3) >> 4
 						next[x+1] += (d * 5) >> 4
-						next[x+2] = d >> 3
+						next[x+2] = d >> 4
 						pix[y*ss+x*4+c] = byte((w * mul) >> 8)
 					}
 				}
