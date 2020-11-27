@@ -35,11 +35,12 @@ func readPNG(filename string) (image.Image, error) {
 }
 
 type options struct {
-	output string
-	input  string
-	format texture.SizedFormat
-	layout texture.Layout
-	mipmap bool
+	output    string
+	input     string
+	format    texture.SizedFormat
+	layout    texture.Layout
+	mipmap    bool
+	dithering texture.Dithering
 }
 
 func parseArgs() (opts options, err error) {
@@ -48,6 +49,7 @@ func parseArgs() (opts options, err error) {
 	native := flag.Bool("native", false, "use native TMEM texture layout")
 	flag.BoolVar(&opts.mipmap, "mipmap", false, "generate mipmaps")
 	flag.Var(&opts.format, "format", "use texture format `fmt.size` (e.g. rgba.16)")
+	dither := flag.String("dither", "", "use dithering algorithm (none, bayer, floyd-steinberg)")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return opts, fmt.Errorf("unexpected argument: %q", args[0])
@@ -64,6 +66,14 @@ func parseArgs() (opts options, err error) {
 		opts.layout = texture.Native
 	} else {
 		opts.layout = texture.Linear
+	}
+	if *dither == "" {
+		opts.dithering = texture.FloydSteinberg
+	} else {
+		opts.dithering, err = texture.ParseDithering(*dither)
+		if err != nil {
+			return opts, fmt.Errorf("invalid value for -dither: %v", err)
+		}
 	}
 	return opts, nil
 }
@@ -102,7 +112,7 @@ func mainE() error {
 	copy(data, "Texture")
 	for _, tile := range tiles {
 		img := texture.ToRGBA8(tile)
-		if err := texture.ToSizedFormat(opts.format, img); err != nil {
+		if err := texture.ToSizedFormat(opts.format, img, opts.dithering); err != nil {
 			return fmt.Errorf("could not convert to %s: %v", opts.format, err)
 		}
 		tdata, err := texture.Pack(img, opts.format, opts.layout)

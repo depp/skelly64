@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"strconv"
+	"strings"
 )
 
 // MemSize is the maximum size in memory of a texture.
@@ -25,6 +27,74 @@ const (
 	// block of texels can be fetched in a single cycle.
 	Native
 )
+
+// A Dithering is a dithering technique.
+type Dithering uint32
+
+const (
+	// NoDither performs no dithering.
+	NoDither Dithering = iota
+
+	// FloydSteinberg performs Floyd-Steinberg error diffusion dithering.
+	FloydSteinberg
+
+	// Bayer performs Bayer ordered dithering.
+	Bayer
+)
+
+var ditheringName = [...]string{
+	NoDither:       "none",
+	FloydSteinberg: "floyd-steinberg",
+	Bayer:          "bayer",
+}
+
+func (d Dithering) String() (s string) {
+	i := uint32(d)
+	if i < uint32(len(ditheringName)) {
+		s = ditheringName[i]
+	}
+	if s == "" {
+		s = strconv.FormatUint(uint64(i), 10)
+	}
+	return
+}
+
+// ParseDithering parses a dithering algorithm name.
+func ParseDithering(s string) (d Dithering, err error) {
+	if s != "" {
+		for i, n := range ditheringName {
+			if strings.EqualFold(s, n) {
+				return Dithering(i), nil
+			}
+		}
+	}
+	return d, fmt.Errorf("unknown dithering algorithm: %q", s)
+}
+
+var bayer [256]byte
+
+func init() {
+	matrix := []byte{0}
+	for i := 1; i <= 4; i++ {
+		psz := 1 << (i - 1)
+		prev := matrix
+		matrix = make([]byte, 1<<(i*2))
+		msz := 1 << i
+		for y := 0; y < psz; y++ {
+			for x := 0; x < psz; x++ {
+				v := prev[y*psz+x] << 2
+				matrix[y*msz+x] = v
+				matrix[y*msz+x+psz] = v + 2
+				matrix[(y+psz)*msz+x] = v + 3
+				matrix[(y+psz)*msz+x+psz] = v + 1
+			}
+		}
+	}
+	copy(bayer[:], matrix)
+	for x := 0; x < 16; x++ {
+		fmt.Println(bayer[x*16 : x*16+16])
+	}
+}
 
 // ToRGBA converts an image to RGBA format.
 func ToRGBA(im image.Image) *image.RGBA {
@@ -106,7 +176,7 @@ func ToRGBA8(im *image.RGBA64) *image.RGBA {
 // format and rescales them to 0-255. For I and IA formats, the red channel is
 // used for intensity, and it is copied to the green and blue channels. For the
 // I format, it is also copied to alpha. CI formats are not supported.
-func ToSizedFormat(f SizedFormat, im *image.RGBA) error {
+func ToSizedFormat(f SizedFormat, im *image.RGBA, dithering Dithering) error {
 	bits, err := f.ChannelBits()
 	if err != nil {
 		return err
@@ -115,6 +185,11 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA) error {
 	sy := im.Rect.Max.Y - im.Rect.Min.Y
 	pix := im.Pix
 	ss := im.Stride
+	errSize := sx + 2
+	errData := make([]int32, errSize*2)
+	for i := range errData {
+		errData[i] = 0
+	}
 	for c, nbits := range bits {
 		switch {
 		case nbits >= 8:
@@ -125,14 +200,55 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA) error {
 				}
 			}
 		default:
-			var mul uint32
-			for n := uint32(1) << (16 - nbits); n >= 0x100; n >>= nbits {
+			var mul int32
+			for n := int32(1) << (16 - nbits); n >= 0x100; n >>= nbits {
 				mul |= n
 			}
-			shift := 8 - nbits
-			for y := 0; y < sy; y++ {
-				for x := 0; x < sx; x++ {
-					pix[y*ss+x*4+c] = byte(((uint32(pix[y*ss+x*4+c]) >> shift) * mul) >> 8)
+			max := (int32(1) << nbits) - 1
+			switch dithering {
+			case NoDither:
+				for y := 0; y < sy; y++ {
+					for x := 0; x < sx; x++ {
+						v := int32(pix[y*ss+x*4+c]) >> (8 - nbits)
+						pix[y*ss+x*4+c] = byte((v * mul) >> 8)
+					}
+				}
+			case FloydSteinberg:
+				for y := 0; y < sy; y++ {
+					// Current and next row error.
+					idx := y & 1
+					cur := errData[errSize*idx : errSize*(idx+1)]
+					next := errData[errSize*(idx^1) : errSize*((idx^1)+1)]
+					next[1] = 0
+					for x := 0; x < sx; x++ {
+						v := (int32(pix[y*ss+x*4+c]) << nbits) + cur[x+1]
+						w := v >> 8
+						if w < 0 {
+							w = 0
+						} else if w > max {
+							w = max
+						}
+						d := v - (w << 8) - 0x80
+						// panic("d = " + strconv.Itoa(int(d)))
+						cur[x+2] += (d * 7) >> 4
+						next[x] += (d * 3) >> 4
+						next[x+1] += (d * 5) >> 4
+						next[x+2] = d >> 3
+						pix[y*ss+x*4+c] = byte((w * mul) >> 8)
+					}
+				}
+			case Bayer:
+				for y := 0; y < sy; y++ {
+					for x := 0; x < sx; x++ {
+						v := ((int32(pix[y*ss+x*4+c]) << nbits) +
+							int32(bayer[((y&15)<<4)|(x&15)]) - 0x80) >> 8
+						if v < 0 {
+							v = 0
+						} else if v > max {
+							v = max
+						}
+						pix[y*ss+x*4+c] = byte((v * mul) >> 8)
+					}
 				}
 			}
 		}

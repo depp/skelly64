@@ -492,7 +492,7 @@ func mainE() error {
 	}
 	if opts.texfmt.Format != texture.UnknownFormat {
 		for _, g := range fn.glyphs {
-			if err := texture.ToSizedFormat(opts.texfmt, &g.image); err != nil {
+			if err := texture.ToSizedFormat(opts.texfmt, &g.image, texture.NoDither); err != nil {
 				return err
 			}
 		}
