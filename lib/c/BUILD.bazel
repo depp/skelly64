@@ -30,6 +30,7 @@ cc_library(
         "console_internal.h",
         "fatal.c",
         "float.c",
+        "thread.c",
         "vec2.c",
     ] + select({
         "//n64:os": [
@@ -56,6 +57,7 @@ cc_library(
     ] + select({
         "//n64:os": [
             "console_n64.h",
+            "os.h",
         ],
         "//conditions:default": [],
     }),
