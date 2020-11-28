@@ -187,7 +187,7 @@ func readProgram(opts *options) ([]byte, error) {
 	}
 	if pakdata != 0 {
 		if pakdata != romsize {
-			return nil, fmt.Errorf("_pakdata_offset is not at ROM end")
+			return nil, fmt.Errorf("_pakdata_offset is not at ROM end (pakdata_offset=0x%x, ROM end=0x%0x)", pakdata, romsize)
 		}
 		if pakdata&1 != 0 {
 			return nil, fmt.Errorf("_pakdata_offset is odd")
