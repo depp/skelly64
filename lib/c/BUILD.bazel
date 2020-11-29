@@ -30,12 +30,16 @@ cc_library(
         "console_internal.h",
         "fatal.c",
         "float.c",
+        "mat4.c",
+        "quat.c",
         "thread.c",
         "vec2.c",
+        "vec3.c",
     ] + select({
         "//n64:os": [
             "console_n64.c",
             "fatal_n64.c",
+            "mat4_n64.c",
             "memcmp.c",
             "memcpy.c",
             "memmove.c",
@@ -52,11 +56,15 @@ cc_library(
         "base.h",
         "console.h",
         "float.h",
+        "mat4.h",
+        "quat.h",
         "vec2.h",
+        "vec3.h",
         "vectypes.h",
     ] + select({
         "//n64:os": [
             "console_n64.h",
+            "mat4_n64.h",
             "os.h",
         ],
         "//conditions:default": [],
