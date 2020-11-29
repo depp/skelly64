@@ -14,11 +14,15 @@ std::string_view Str(const aiString &s) {
 
 namespace {
 
-[[noreturn]] void BadVertexPos(unsigned idx, const aiVector3D &vec,
+[[noreturn]] void BadVertexPos(unsigned idx, const std::array<float, 3> &vec,
                                const char *msg) {
     throw MeshError(
         fmt::format("error processing vertex {} at ({}, {}, {}): {}", idx,
                     vec[0], vec[1], vec[2], msg));
+}
+
+std::array<float, 3> ImportVector(const aiVector3D &v) {
+    return {{v.x, v.y, v.z}};
 }
 
 } // namespace
@@ -34,7 +38,8 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
         const float scale = cfg.scale;
         const aiVector3D *posarr = mesh->mVertices;
         for (unsigned i = 0; i < nvert; i++) {
-            const aiVector3D fpos = posarr[i];
+            std::array<float, 3> fpos = ImportVector(posarr[i]);
+            fpos = cfg.axes.Apply(fpos);
             std::array<int16_t, 3> ipos;
             for (int j = 0; j < 3; j++) {
                 const float v = fpos[j] * scale;
@@ -76,7 +81,8 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
     if (cfg.use_normals) {
         const aiVector3D *normarr = mesh->mNormals;
         for (unsigned i = 0; i < nvert; i++) {
-            const aiVector3D fnorm = normarr[i];
+            std::array<float, 3> fnorm = ImportVector(normarr[i]);
+            fnorm = cfg.axes.Apply(fnorm);
             std::array<int8_t, 3> inorm;
             for (int j = 0; j < 3; j++) {
                 // 11.7.2 Normal Vector Normalization: limit to 127, but Q&A 3D

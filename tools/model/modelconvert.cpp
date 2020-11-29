@@ -4,6 +4,7 @@
 #include "tools/util/flag.hpp"
 #include "tools/util/quote.hpp"
 
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 #include <err.h>
@@ -16,6 +17,27 @@
 
 namespace modelconvert {
 namespace {
+
+class AxesFlag : public flag::FlagBase {
+    Axes *m_ptr;
+
+public:
+    explicit AxesFlag(Axes *ptr) : m_ptr{ptr} {}
+
+    flag::FlagArgument Argument() const override {
+        return flag::FlagArgument::Required;
+    }
+
+    void Parse(std::optional<std::string_view> arg) override {
+        assert(arg.has_value());
+        try {
+            *m_ptr = Axes::Parse(*arg);
+        } catch (std::invalid_argument &ex) {
+            std::string msg = fmt::format("invalid axes: {}", ex.what());
+            throw flag::UsageError(msg);
+        }
+    }
+};
 
 // Wrapper for std::FILE.
 class File {
@@ -76,6 +98,7 @@ Args ParseArgs(int argc, char **argv) {
         }
     }
     Args args{};
+    args.config.axes = Axes::Default();
     flag::Parser fl;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
@@ -90,6 +113,8 @@ Args ParseArgs(int argc, char **argv) {
                "EXPR");
     fl.AddFlag(util::ExprFlag(&args.scale), "scale", "amount to scale model",
                "EXPR");
+    fl.AddFlag(AxesFlag(&args.config.axes), "axes",
+               "remap axes, default 'x,y,z'", "AXES");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
@@ -174,6 +199,9 @@ void Main(int argc, char **argv) {
         fmt::print(stderr, "Error: could not import {}: {}\n",
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
+    }
+    if (stats) {
+        fmt::print(stats, "Axes: {}\n", cfg.axes.ToString());
     }
     {
         util::Expr::Env env;
