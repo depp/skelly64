@@ -221,6 +221,10 @@ func mainE() error {
 	if err != nil {
 		return err
 	}
+	const loadEnd = loadOffset + loadSize
+	if len(prog) > loadEnd {
+		return fmt.Errorf("program data (%d bytes) exceeds load size (%d bytes)", len(prog)-loadOffset, loadSize)
+	}
 
 	// Read pak data.
 	var pakdata []byte
@@ -233,9 +237,8 @@ func mainE() error {
 
 	// Create the final ROM image.
 	outlen := len(prog) + len(pakdata)
-	const minSize = loadOffset + loadSize
-	if outlen < minSize {
-		outlen = minSize
+	if outlen < loadEnd {
+		outlen = loadEnd
 	}
 	data := make([]byte, outlen)
 	copy(data, prog)
