@@ -119,7 +119,7 @@ struct BuildBatch {
 
     // Emit the batch and add it to the mesh.
     void Emit(BatchMesh *bmesh, CacheState *cache,
-              const std::vector<Vertex> &vertdata,
+              const std::vector<FVertex> &vertdata,
               const std::vector<VState> &vstate, unsigned cache_size) {
         auto start = vertexes.begin();
         auto end = vertexes.end();
@@ -137,7 +137,7 @@ struct BuildBatch {
         batch.vert_dest = idx;
         for (auto it = start; it != end; ++it, ++idx) {
             unsigned vtx = *it;
-            bmesh->vertexes.push_back(vertdata.at(vtx));
+            bmesh->vertexes.push_back(vertdata.at(vtx).vert);
             cache->Set(idx, vtx);
         }
         // Emit the triangles.

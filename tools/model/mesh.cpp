@@ -146,14 +146,14 @@ uint32_t Vertex::Hash() const {
     return h.Hash();
 }
 
-unsigned VertexSet::Add(const Vertex &v) {
-    auto it = indexes.find(v);
+unsigned VertexSet::Add(const FVertex &v) {
+    auto it = indexes.find(v.vert);
     if (it != indexes.end()) {
         return it->second;
     }
     unsigned index = vertexes.size();
     vertexes.emplace_back(v);
-    indexes.emplace(v, index);
+    indexes.emplace(v.vert, index);
     return index;
 }
 

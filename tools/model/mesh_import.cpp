@@ -101,7 +101,7 @@ void Mesh::AddNodes(const Config &cfg, std::FILE *stats, aiNode *node) {
 
 void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
     unsigned nvert = mesh->mNumVertices;
-    std::vector<Vertex> mverts(nvert, Vertex{});
+    std::vector<FVertex> mverts(nvert, FVertex{});
     using Vector = std::array<int16_t, 3>;
     using Traits = VectorTraits<int16_t, 3>;
 
@@ -114,7 +114,7 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
             fpos = cfg.axes.Apply(fpos);
             std::array<int16_t, 3> ipos;
             for (int j = 0; j < 3; j++) {
-                const float v = fpos[j] * scale;
+                const float v = fpos[j] *= scale;
                 if (v > std::numeric_limits<int16_t>::min()) {
                     if (v < std::numeric_limits<int16_t>::max()) {
                         ipos[j] = std::lrintf(v);
@@ -125,16 +125,17 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
                     BadVertexPos(i, fpos, "coordinate out of range");
                 }
             }
-            mverts[i].pos = ipos;
+            mverts[i].vert.pos = ipos;
+            mverts[i].pos = fpos;
         }
     }
 
     // Compute bounds.
     {
         Vector min = Traits::max_value(), max = Traits::min_value();
-        for (const Vertex &vec : mverts) {
-            min = Traits::min(min, vec.pos);
-            max = Traits::max(max, vec.pos);
+        for (const FVertex &vec : mverts) {
+            min = Traits::min(min, vec.vert.pos);
+            max = Traits::max(max, vec.vert.pos);
         }
         if (stats != nullptr) {
             fmt::print(stats, "Submesh bounds: ({}, {}, {}) ({}, {}, {})\n",
@@ -178,7 +179,7 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
                 }
                 inorm[j] = iv;
             }
-            mverts[i].normal = inorm;
+            mverts[i].vert.normal = inorm;
         }
     }
 done_normals:
@@ -214,7 +215,7 @@ done_normals:
                 }
                 itexcoord[j] = iv;
             }
-            mverts[i].texcoord = itexcoord;
+            mverts[i].vert.texcoord = itexcoord;
         }
     }
 done_texcoords:
@@ -230,9 +231,9 @@ done_texcoords:
         }
         for (unsigned i = 0; i < nvert; i++) {
             std::array<uint8_t, 4> icolor = ImportColor(colorarr[i]);
-            mverts[i].color =
+            mverts[i].vert.color =
                 std::array<uint8_t, 3>{{icolor[0], icolor[1], icolor[2]}};
-            mverts[i].alpha = icolor[3];
+            mverts[i].vert.alpha = icolor[3];
         }
     }
 done_colors:
@@ -252,7 +253,7 @@ done_colors:
                     std::lrintf(static_cast<float>(MaxBoneWeight) * fweight);
                 if (iweight != 0) {
                     unsigned index = wp->mVertexId;
-                    Vertex &v = mverts.at(index);
+                    Vertex &v = mverts.at(index).vert;
                     size_t num_bones = 0;
                     while (num_bones < MaxBones &&
                            v.bone_weights[num_bones].weight > 0) {

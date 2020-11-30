@@ -76,17 +76,23 @@ struct Vertex {
     uint32_t Hash() const;
 };
 
+// A vertex and its floating-point coordinates.
+struct FVertex {
+    Vertex vert;
+    std::array<float, 3> pos;
+};
+
 struct HashVertex {
     uint32_t operator()(const Vertex &v) const { return v.Hash(); }
 };
 
 // A set of vertexes. Deduplicates vertexes as they are added.
 struct VertexSet {
-    std::vector<Vertex> vertexes;
+    std::vector<FVertex> vertexes;
     std::unordered_map<Vertex, unsigned, HashVertex> indexes;
 
     // Add a vertex if it is not already present. Return its index.
-    unsigned Add(const Vertex &v);
+    unsigned Add(const FVertex &v);
 };
 
 // An individual triangle in a mesh.
