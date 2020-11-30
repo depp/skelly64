@@ -99,6 +99,7 @@ Args ParseArgs(int argc, char **argv) {
     }
     Args args{};
     args.config.axes = Axes::Default();
+    args.config.texcoord_bits = 11;
     flag::Parser fl;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
@@ -109,10 +110,14 @@ Args ParseArgs(int argc, char **argv) {
                    "use primitive color from material");
     fl.AddBoolFlag(&args.config.use_normals, "use-normals",
                    "use vertex normals");
+    fl.AddBoolFlag(&args.config.use_texcoords, "use-texcoords",
+                   "use texture coordinates");
     fl.AddFlag(util::ExprFlag(&args.meter), "meter", "length of a meter",
                "EXPR");
     fl.AddFlag(util::ExprFlag(&args.scale), "scale", "amount to scale model",
                "EXPR");
+    fl.AddFlag(flag::Int(&args.config.texcoord_bits), "texcoord-bits",
+               "fractional bits of precision for texture coordinates");
     fl.AddFlag(AxesFlag(&args.config.axes), "axes",
                "remap axes, default 'x,y,z'", "AXES");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};

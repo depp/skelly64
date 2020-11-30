@@ -104,6 +104,34 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
         }
     }
 
+    // Get texture coordinates.
+    if (cfg.use_texcoords) {
+        const aiVector3D *texcoordarr = mesh->mTextureCoords[0];
+        if (cfg.texcoord_bits < 0 || cfg.texcoord_bits >= 32) {
+            throw std::range_error("texcoord_bits out of range");
+        }
+        float scale = 1 << cfg.texcoord_bits;
+        for (unsigned i = 0; i < nvert; i++) {
+            std::array<float, 3> ftexcoord = ImportVector(texcoordarr[i]);
+            std::array<int16_t, 2> itexcoord;
+            for (int j = 0; j < 2; j++) {
+                const float v = ftexcoord[j] * scale;
+                int iv;
+                if (v > std::numeric_limits<int16_t>::min()) {
+                    if (v < std::numeric_limits<int16_t>::max()) {
+                        iv = std::lrintf(v);
+                    } else {
+                        iv = std::numeric_limits<int16_t>::max();
+                    }
+                } else {
+                    iv = std::numeric_limits<int16_t>::min();
+                }
+                itexcoord[j] = iv;
+            }
+            mverts[i].texcoord = itexcoord;
+        }
+    }
+
     // Add vertexes to vertex set, get indexes.
     std::vector<unsigned> mvindex(nvert, 0);
     for (unsigned i = 0; i < nvert; i++) {
