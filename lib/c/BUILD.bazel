@@ -32,7 +32,6 @@ cc_library(
         "float.c",
         "mat4.c",
         "quat.c",
-        "thread.c",
         "vec2.c",
         "vec3.c",
     ] + select({
@@ -46,6 +45,7 @@ cc_library(
             "memory_n64.c",
             "memset.c",
             "strlen.c",
+            "thread.c",
         ],
         "//conditions:default": [
             "fatal_pc.c",
