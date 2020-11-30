@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tools/modelconvert/axes.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -18,26 +20,6 @@ struct aiString;
 namespace modelconvert {
 
 struct Gfx;
-
-// Axis orientation.
-struct Axes {
-    std::array<bool, 3> negate;
-    std::array<int, 3> index;
-
-    static Axes Default();
-
-    template <typename T>
-    std::array<T, 3> Apply(std::array<T, 3> vec) const {
-        return std::array<T, 3>{{
-            negate[0] ? -vec[index[0]] : vec[index[0]],
-            negate[1] ? -vec[index[1]] : vec[index[1]],
-            negate[2] ? -vec[index[2]] : vec[index[2]],
-        }};
-    }
-
-    std::string ToString() const;
-    static Axes Parse(std::string_view s);
-};
 
 std::string_view Str(const aiString &s);
 

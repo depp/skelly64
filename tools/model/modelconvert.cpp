@@ -98,7 +98,6 @@ Args ParseArgs(int argc, char **argv) {
         }
     }
     Args args{};
-    args.config.axes = Axes::Default();
     args.config.texcoord_bits = 11;
     flag::Parser fl;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
