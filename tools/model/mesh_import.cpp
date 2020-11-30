@@ -1,5 +1,6 @@
 #include "tools/modelconvert/mesh.hpp"
 
+#include "tools/modelconvert/config.hpp"
 #include "tools/util/quote.hpp"
 
 #include <algorithm>

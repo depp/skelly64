@@ -4,7 +4,12 @@
 #include <cstddef>
 #include <cstdint>
 
+struct aiMaterial;
+
 namespace modelconvert {
+
+struct Config;
+struct Gfx;
 
 template <typename T, std::size_t N>
 struct VectorTraits {
@@ -78,6 +83,35 @@ struct FVertex {
 
 struct HashVertex {
     uint32_t operator()(const Vertex &v) const { return v.Hash(); }
+};
+
+// Information about a material.
+struct Material {
+    // Primitive color.
+    std::array<uint8_t, 4> rgba;
+
+    // The default material.
+    static Material Default();
+
+    // Import a material from Assimp.
+    static Material Import(const Config &cfg, aiMaterial *mat);
+
+    // Write commands to a display list, given the previous state.
+    void Write(const Material &state, std::vector<Gfx> *dl) const;
+
+    bool operator==(const Vertex &v) const;
+    bool operator!=(const Vertex &v) const;
+    uint32_t Hash() const;
+};
+
+struct HashMaterial {
+    uint32_t operator()(const Vertex &v) const { return v.Hash(); }
+};
+
+// An individual triangle in a mesh.
+struct Triangle {
+    unsigned material;
+    std::array<unsigned, 3> vertex;
 };
 
 } // namespace modelconvert

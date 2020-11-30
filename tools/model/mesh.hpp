@@ -39,56 +39,6 @@ struct VertexSet {
     unsigned Add(const FVertex &v);
 };
 
-// An individual triangle in a mesh.
-struct Triangle {
-    unsigned material;
-    std::array<unsigned, 3> vertex;
-};
-
-// Configuration for importing / rendering the mesh.
-struct Config {
-    // If true, the materials are given a primitive color equal to the
-    // material’s diffuse color in the input model.
-    bool use_primitive_color;
-    // If true, vertex normals are added to the vertex data.
-    bool use_normals;
-    // If true, texture coordinates are added to the vertex data.
-    bool use_texcoords;
-    // If true, vertex colors are added to the vertex data.
-    bool use_vertex_colors;
-    // Number of fractional bits of precision for texture coordinates.
-    int texcoord_bits;
-    // The amount to scale the model data.
-    float scale;
-    // The order and sign of the axes.
-    Axes axes;
-    // If true, create animations.
-    bool animate;
-};
-
-// Information about a material.
-struct Material {
-    // Primitive color.
-    std::array<uint8_t, 4> rgba;
-
-    // The default material.
-    static Material Default();
-
-    // Import a material from Assimp.
-    static Material Import(const Config &cfg, aiMaterial *mat);
-
-    // Write commands to a display list, given the previous state.
-    void Write(const Material &state, std::vector<Gfx> *dl) const;
-
-    bool operator==(const Vertex &v) const;
-    bool operator!=(const Vertex &v) const;
-    uint32_t Hash() const;
-};
-
-struct HashMaterial {
-    uint32_t operator()(const Vertex &v) const { return v.Hash(); }
-};
-
 struct BatchMesh;
 
 // Information about a node in the hierarchy.
@@ -117,33 +67,6 @@ struct Mesh {
 
     // Convert the mesh into batches of triangle, where each batch fits
     BatchMesh MakeBatches(unsigned cache_size);
-};
-
-// A batch of triangles.
-struct Batch {
-    // Number of vertexes to load.
-    unsigned vert_count;
-    // Index of first vertex to load.
-    unsigned vert_src;
-    // Location in cache to load vertexes.
-    unsigned vert_dest;
-    // Triangles to render.
-    std::vector<Triangle> triangles;
-};
-
-// A mesh which has been split into batches of primitives, each of which uses
-// only enough vertexes to fill the cache.
-struct BatchMesh {
-    std::vector<Vertex> vertexes;
-    std::vector<Batch> batches;
-
-    // Dump mesh info to file.
-    void Dump(std::FILE *stats) const;
-
-    // Emit as GBI commands and vertex data for the Nintendo 64. This assumes
-    // that segment 1 points at the beginning of this data block.
-    std::vector<uint8_t> EmitGBI(const Config &cfg,
-                                 const std::vector<Material> &materials) const;
 };
 
 } // namespace modelconvert

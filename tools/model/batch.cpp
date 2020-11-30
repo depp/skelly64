@@ -1,3 +1,5 @@
+#include "tools/modelconvert/batch.hpp"
+
 #include "tools/modelconvert/mesh.hpp"
 
 #include <algorithm>

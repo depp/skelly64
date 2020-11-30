@@ -1,3 +1,5 @@
+#include "tools/modelconvert/batch.hpp"
+#include "tools/modelconvert/config.hpp"
 #include "tools/modelconvert/mesh.hpp"
 #include "tools/util/expr.hpp"
 #include "tools/util/expr_flag.hpp"

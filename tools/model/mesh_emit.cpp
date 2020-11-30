@@ -1,5 +1,6 @@
-#include "tools/modelconvert/mesh.hpp"
+#include "tools/modelconvert/batch.hpp"
 
+#include "tools/modelconvert/config.hpp"
 #include "tools/modelconvert/gbi.hpp"
 #include "tools/util/bswap.hpp"
 
