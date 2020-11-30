@@ -110,6 +110,8 @@ Args ParseArgs(int argc, char **argv) {
                    "use primitive color from material");
     fl.AddBoolFlag(&args.config.use_normals, "use-normals",
                    "use vertex normals");
+    fl.AddBoolFlag(&args.config.use_vertex_colors, "use-vertex-colors",
+                   "use vertex colors");
     fl.AddBoolFlag(&args.config.use_texcoords, "use-texcoords",
                    "use texture coordinates");
     fl.AddFlag(util::ExprFlag(&args.meter), "meter", "length of a meter",

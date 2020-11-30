@@ -86,6 +86,8 @@ struct Config {
     bool use_normals;
     // If true, texture coordinates are added to the vertex data.
     bool use_texcoords;
+    // If true, vertex colors are added to the vertex data.
+    bool use_vertex_colors;
     // Number of fractional bits of precision for texture coordinates.
     int texcoord_bits;
     // The amount to scale the model data.

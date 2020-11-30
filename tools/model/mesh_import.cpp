@@ -25,6 +25,27 @@ std::array<float, 3> ImportVector(const aiVector3D &v) {
     return {{v.x, v.y, v.z}};
 }
 
+std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
+    std::array<float, 4> arr = {{color.r, color.g, color.b, color.a}};
+    std::array<uint8_t, 4> rgba;
+    for (int i = 0; i < 4; i++) {
+        float c = arr[i];
+        int v = 255;
+        if (c < 1.0f) {
+            if (c > 0.0f) {
+                v = std::lrintf(256.0f * c);
+                if (v > 255) {
+                    v = 255;
+                }
+            } else {
+                v = 0;
+            }
+        }
+        rgba[i] = v;
+    }
+    return rgba;
+}
+
 } // namespace
 
 void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
@@ -80,6 +101,12 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
     // Get vertex normals.
     if (cfg.use_normals) {
         const aiVector3D *normarr = mesh->mNormals;
+        if (normarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No normals\n");
+            }
+            goto done_normals;
+        }
         for (unsigned i = 0; i < nvert; i++) {
             std::array<float, 3> fnorm = ImportVector(normarr[i]);
             fnorm = cfg.axes.Apply(fnorm);
@@ -103,14 +130,21 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
             mverts[i].normal = inorm;
         }
     }
+done_normals:
 
     // Get texture coordinates.
     if (cfg.use_texcoords) {
         const aiVector3D *texcoordarr = mesh->mTextureCoords[0];
+        if (texcoordarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No texture coordinates\n");
+            }
+            goto done_texcoords;
+        }
         if (cfg.texcoord_bits < 0 || cfg.texcoord_bits >= 32) {
             throw std::range_error("texcoord_bits out of range");
         }
-        float scale = 1 << cfg.texcoord_bits;
+        const float scale = 1 << cfg.texcoord_bits;
         for (unsigned i = 0; i < nvert; i++) {
             std::array<float, 3> ftexcoord = ImportVector(texcoordarr[i]);
             ftexcoord[1] = 1.0f - ftexcoord[1];
@@ -132,6 +166,25 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
             mverts[i].texcoord = itexcoord;
         }
     }
+done_texcoords:
+
+    // Get vertex colors.
+    if (cfg.use_vertex_colors) {
+        const aiColor4D *colorarr = mesh->mColors[0];
+        if (colorarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No colors\n");
+            }
+            goto done_colors;
+        }
+        for (unsigned i = 0; i < nvert; i++) {
+            std::array<uint8_t, 4> icolor = ImportColor(colorarr[i]);
+            mverts[i].color =
+                std::array<uint8_t, 3>{{icolor[0], icolor[1], icolor[2]}};
+            mverts[i].alpha = icolor[3];
+        }
+    }
+done_colors:
 
     // Add vertexes to vertex set, get indexes.
     std::vector<unsigned> mvindex(nvert, 0);
@@ -165,30 +218,6 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
         }
     }
 }
-
-namespace {
-
-std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
-    std::array<uint8_t, 4> rgba;
-    for (int i = 0; i < 4; i++) {
-        float c = color[i];
-        int v = 255;
-        if (c < 1.0f) {
-            if (c > 0.0f) {
-                v = std::lrintf(256.0f * c);
-                if (v > 255) {
-                    v = 255;
-                }
-            } else {
-                v = 0;
-            }
-        }
-        rgba[i] = v;
-    }
-    return rgba;
-}
-
-} // namespace
 
 Material Material::Import(const Config &cfg, aiMaterial *mat) {
     // for (aiMaterialProperty **ptr = mat->mProperties,
