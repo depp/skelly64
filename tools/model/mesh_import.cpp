@@ -113,6 +113,7 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
         float scale = 1 << cfg.texcoord_bits;
         for (unsigned i = 0; i < nvert; i++) {
             std::array<float, 3> ftexcoord = ImportVector(texcoordarr[i]);
+            ftexcoord[1] = 1.0f - ftexcoord[1];
             std::array<int16_t, 2> itexcoord;
             for (int j = 0; j < 2; j++) {
                 const float v = ftexcoord[j] * scale;
