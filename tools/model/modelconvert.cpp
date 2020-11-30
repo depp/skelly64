@@ -260,6 +260,7 @@ void Main(int argc, char **argv) {
     VertexSet verts;
 
     Mesh mesh{};
+    mesh.AddNodes(cfg, stats, scene->mRootNode);
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
          ptr != end; ptr++) {

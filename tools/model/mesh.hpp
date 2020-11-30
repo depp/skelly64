@@ -9,8 +9,9 @@
 #include <unordered_map>
 #include <vector>
 
-struct aiMesh;
 struct aiMaterial;
+struct aiMesh;
+struct aiNode;
 struct aiString;
 
 namespace modelconvert {
@@ -139,13 +140,25 @@ struct HashMaterial {
 
 struct BatchMesh;
 
+// Information about a node in the hierarchy.
+struct Node {
+    Node(int parent, std::string name)
+        : parent{parent}, name{std::move(name)} {}
+
+    int parent;
+    std::string name;
+};
+
 // A complete mesh.
 struct Mesh {
     VertexSet vertexes;
     std::vector<Triangle> triangles;
     std::unordered_map<std::string, uint32_t> bone_names;
-
+    std::vector<Node> nodes;
     std::array<int16_t, 3> bounds_min, bounds_max;
+
+    // Recursively add nodes from the given hierarchy.
+    void AddNodes(const Config &cfg, std::FILE *stats, aiNode *node);
 
     // Add an Assimp mesh to the mesh, giving its faces the given material
     // index.

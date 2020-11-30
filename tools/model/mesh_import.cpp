@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <assimp/material.h>
 #include <assimp/mesh.h>
+#include <assimp/scene.h>
 #include <cassert>
 #include <fmt/core.h>
 
@@ -48,7 +49,55 @@ std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
     return rgba;
 }
 
+void MeshAddNodes(Mesh &mesh, aiNode *node, int parent) {
+    size_t n = mesh.nodes.size();
+    if (n > std::numeric_limits<int>::max()) {
+        throw std::runtime_error("too many nodes");
+    }
+    int index = n;
+    mesh.nodes.emplace_back(parent, std::string(Str(node->mName)));
+    for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
+         cp != ce; cp++) {
+        MeshAddNodes(mesh, *cp, index);
+    }
+}
+
+// Find the index of the bone with the given name, or throw an exception.
+uint32_t FindBone(Mesh &mesh, std::string_view name) {
+    std::string bone_name(name);
+    auto bonep = mesh.bone_names.find(bone_name);
+    if (bonep != mesh.bone_names.end()) {
+        return bonep->second;
+    }
+    auto start = std::begin(mesh.nodes), end = std::end(mesh.nodes);
+    auto ptr = start;
+    while (ptr != end && ptr->name != bone_name) {
+        ++ptr;
+    }
+    if (ptr == end) {
+        throw std::runtime_error(fmt::format("could not find bone, name={}",
+                                             util::Quote(bone_name)));
+    }
+    uint32_t bone_id = ptr - start;
+    for (++ptr; ptr != end; ++ptr) {
+        if (ptr->name == bone_name) {
+            throw std::runtime_error(
+                fmt::format("bone matches name of multiple nodes, name={}",
+                            util::Quote(bone_name)));
+        }
+    }
+    mesh.bone_names.emplace(std::move(bone_name), bone_id);
+    return bone_id;
+}
+
 } // namespace
+
+void Mesh::AddNodes(const Config &cfg, std::FILE *stats, aiNode *node) {
+    (void)stats;
+    if (cfg.animate) {
+        MeshAddNodes(*this, node, -1);
+    }
+}
 
 void Mesh::AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh) {
     unsigned nvert = mesh->mNumVertices;
@@ -194,15 +243,7 @@ done_colors:
              bp++) {
             aiBone *bone = *bp;
             assert(bone != nullptr);
-            std::string bone_name(Str(bone->mName));
-            auto bonep = bone_names.find(bone_name);
-            uint32_t bone_id;
-            if (bonep == bone_names.end()) {
-                bone_id = bone_names.size();
-                bone_names.insert({std::move(bone_name), bone_id});
-            } else {
-                bone_id = bonep->second;
-            }
+            uint32_t bone_id = FindBone(*this, Str(bone->mName));
             for (const aiVertexWeight *wp = bone->mWeights,
                                       *we = wp + bone->mNumWeights;
                  wp != we; wp++) {
