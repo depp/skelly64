@@ -2,8 +2,10 @@
 
 #include "tools/util/quote.hpp"
 
+#include <algorithm>
 #include <assimp/material.h>
 #include <assimp/mesh.h>
+#include <cassert>
 #include <fmt/core.h>
 
 namespace modelconvert {
@@ -185,6 +187,60 @@ done_texcoords:
         }
     }
 done_colors:
+
+    // Add bone weights.
+    if (cfg.animate && mesh->mNumBones > 0) {
+        for (aiBone **bp = mesh->mBones, **be = bp + mesh->mNumBones; bp != be;
+             bp++) {
+            aiBone *bone = *bp;
+            assert(bone != nullptr);
+            std::string bone_name(Str(bone->mName));
+            auto bonep = bone_names.find(bone_name);
+            uint32_t bone_id;
+            if (bonep == bone_names.end()) {
+                bone_id = bone_names.size();
+                bone_names.insert({std::move(bone_name), bone_id});
+            } else {
+                bone_id = bonep->second;
+            }
+            for (const aiVertexWeight *wp = bone->mWeights,
+                                      *we = wp + bone->mNumWeights;
+                 wp != we; wp++) {
+                const float fweight = wp->mWeight;
+                const int iweight =
+                    std::lrintf(static_cast<float>(MaxBoneWeight) * fweight);
+                if (iweight != 0) {
+                    unsigned index = wp->mVertexId;
+                    Vertex &v = mverts.at(index);
+                    size_t num_bones = 0;
+                    while (num_bones < MaxBones &&
+                           v.bone_weights[num_bones].weight > 0) {
+                        num_bones++;
+                    }
+                    if (num_bones == MaxBones) {
+                        throw std::runtime_error(fmt::format(
+                            "vertex has too many bones, vertex={}", index));
+                    }
+                    size_t pos;
+                    for (pos = 0; pos < num_bones; pos++) {
+                        const BoneWeight &w = v.bone_weights[pos];
+                        if (w.bone > bone_id) {
+                            break;
+                        }
+                    }
+                    if (pos < num_bones) {
+                        std::copy_backward(
+                            std::begin(v.bone_weights) + pos,
+                            std::begin(v.bone_weights) + num_bones,
+                            std::begin(v.bone_weights) + num_bones + 1);
+                    }
+                    BoneWeight &w = v.bone_weights[pos];
+                    w.bone = bone_id;
+                    w.weight = iweight;
+                }
+            }
+        }
+    }
 
     // Add vertexes to vertex set, get indexes.
     std::vector<unsigned> mvindex(nvert, 0);

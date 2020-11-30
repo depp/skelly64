@@ -45,6 +45,21 @@ public:
     MeshError(const std::string &msg) : runtime_error{msg} {}
 };
 
+// Maximum number of bones per vertex.
+constexpr size_t MaxBones = 4;
+
+// Maxmum bone weight, the fixed-point value of 1.0.
+constexpr uint32_t MaxBoneWeight = 1 << 24;
+
+// Bone weight for a vertex.
+struct BoneWeight {
+    uint32_t bone;
+    uint32_t weight; // 8.24, see MaxBoneWeight.
+
+    bool operator==(const BoneWeight &w) const;
+    bool operator!=(const BoneWeight &w) const;
+};
+
 // All data that could be associated with a vertex in one structure.
 struct Vertex {
     std::array<int16_t, 3> pos;
@@ -52,6 +67,7 @@ struct Vertex {
     std::array<uint8_t, 3> color;
     uint8_t alpha;
     std::array<int8_t, 3> normal;
+    std::array<BoneWeight, MaxBones> bone_weights;
 
     bool operator==(const Vertex &v) const;
     bool operator!=(const Vertex &v) const;
@@ -94,6 +110,8 @@ struct Config {
     float scale;
     // The order and sign of the axes.
     Axes axes;
+    // If true, create animations.
+    bool animate;
 };
 
 // Information about a material.
@@ -125,6 +143,7 @@ struct BatchMesh;
 struct Mesh {
     VertexSet vertexes;
     std::vector<Triangle> triangles;
+    std::unordered_map<std::string, uint32_t> bone_names;
 
     std::array<int16_t, 3> bounds_min, bounds_max;
 

@@ -122,6 +122,7 @@ Args ParseArgs(int argc, char **argv) {
                "fractional bits of precision for texture coordinates");
     fl.AddFlag(AxesFlag(&args.config.axes), "axes",
                "remap axes, default 'x,y,z'", "AXES");
+    fl.AddBoolFlag(&args.config.animate, "animate", "convert animations");
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
