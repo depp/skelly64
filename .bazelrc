@@ -13,3 +13,4 @@ try-import %workspace%/.user.bazelrc
 
 build --copt=-fdiagnostics-color
 build --host_copt=-fdiagnostics-color
+build --host_copt=-UNDEBUG
