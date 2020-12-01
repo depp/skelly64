@@ -66,12 +66,8 @@ Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
     aiMatrix4x4 scale;
     aiMatrix4x4::Scaling(aiVector3D(cfg.scale), scale);
     mesh.m_transform = cfg.axes.ToMatrix() * scale;
-    mesh.AddNode(scene->mRootNode, -1);
-    for (aiMesh **ptr = scene->mMeshes,
-                **end = scene->mMeshes + scene->mNumMeshes;
-         ptr != end; ptr++) {
-        mesh.AddMesh(cfg, stats, *ptr);
-    }
+    mesh.AddNodes(scene->mRootNode, -1);
+    mesh.AddMeshes(cfg, stats, scene, scene->mRootNode, aiMatrix4x4());
     mesh.ComputeStaticPos();
     return mesh;
 }
@@ -86,7 +82,7 @@ void Mesh::Dump(std::FILE *stats) const {
                m_bone_names.size());
 }
 
-void Mesh::AddNode(const aiNode *node, int parent) {
+void Mesh::AddNodes(const aiNode *node, int parent) {
     size_t n = m_node.size();
     if (n > std::numeric_limits<int>::max()) {
         throw std::runtime_error("too many nodes");
@@ -95,11 +91,29 @@ void Mesh::AddNode(const aiNode *node, int parent) {
     m_node.emplace_back(parent, std::string(Str(node->mName)));
     for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
          cp != ce; cp++) {
-        AddNode(*cp, index);
+        AddNodes(*cp, index);
     }
 }
 
-void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh) {
+void Mesh::AddMeshes(const Config &cfg, std::FILE *stats, const aiScene *scene,
+                     const aiNode *node, const aiMatrix4x4 &transform) {
+    const aiMatrix4x4 node_transform = transform * node->mTransformation;
+    for (const unsigned *mp = node->mMeshes, *me = mp + node->mNumMeshes;
+         mp != me; mp++) {
+        unsigned mesh_id = *mp;
+        if (mesh_id >= scene->mNumMeshes) {
+            throw MeshError("bad mesh reference in scene");
+        }
+        AddMesh(cfg, stats, scene->mMeshes[mesh_id], node_transform);
+    }
+    for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
+         cp != ce; cp++) {
+        AddMeshes(cfg, stats, scene, *cp, node_transform);
+    }
+}
+
+void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
+                   const aiMatrix4x4 &transform) {
     if (mesh->mNumVertices > std::numeric_limits<int>::max()) {
         throw std::runtime_error("too many vertexes");
     }
@@ -116,7 +130,7 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh) {
     {
         const aiVector3D *posarr = mesh->mVertices;
         for (int i = 0; i < nvert; i++) {
-            m_rawposition.at(offset + i) = posarr[i];
+            m_rawposition.at(offset + i) = transform * posarr[i];
         }
     }
 

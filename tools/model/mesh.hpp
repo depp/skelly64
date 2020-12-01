@@ -97,10 +97,15 @@ public:
 private:
     // Add a node and all its children recursively, given the index of the
     // parent.
-    void AddNode(const aiNode *node, int parent);
+    void AddNodes(const aiNode *node, int parent);
+
+    // Add the meshes belonging to a node and its children.
+    void AddMeshes(const Config &cfg, std::FILE *stats, const aiScene *scene,
+                   const aiNode *node, const aiMatrix4x4 &transform);
 
     // Add a AssImp mesh.
-    void AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh);
+    void AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
+                 const aiMatrix4x4 &transform);
 
     // Compute static vertex positions.
     void ComputeStaticPos();

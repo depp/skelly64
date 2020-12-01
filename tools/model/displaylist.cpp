@@ -26,6 +26,7 @@ void DisplayList::Triangle(std::array<int, 3> tri) {
         }
         for (int j = 0; j < i; j++) {
             if (idx == tri[j]) {
+                return;
                 throw std::runtime_error(
                     "DisplayList::Triangle: degenerate triangle");
             }
