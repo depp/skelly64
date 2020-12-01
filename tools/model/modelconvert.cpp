@@ -226,33 +226,6 @@ void Main(int argc, char **argv) {
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
     }
-    {
-        float max[3] = {0.0f, 0.0f, 0.0f};
-        for (aiMesh **ptr = scene->mMeshes, **end = ptr + scene->mNumMeshes;
-             ptr != end; ptr++) {
-            aiMesh *mesh = *ptr;
-            for (const aiVector3D *vptr = mesh->mVertices,
-                                  *vend = vptr + mesh->mNumVertices;
-                 vptr != vend; vptr++) {
-                float val[3] = {vptr->x, vptr->y, vptr->z};
-                for (int i = 0; i < 3; i++) {
-                    float v = val[i];
-                    if (v < 0) {
-                        v = -v;
-                    }
-                    if (v > max[i]) {
-                        max[i] = v;
-                    }
-                }
-            }
-        }
-        if (stats) {
-            fmt::print(stats, "Bounding box: ({}, {}, {})\n", max[0], max[1],
-                       max[2]);
-            double max3 = std::max(std::max(max[0], max[1]), max[2]);
-            fmt::print(stats, "Maximum absolute coordinate: {}\n", max3);
-        }
-    }
     if (stats) {
         fmt::print(stats, "Nodes:\n");
         VisitNode(stats, scene->mRootNode);

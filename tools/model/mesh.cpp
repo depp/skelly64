@@ -69,6 +69,33 @@ Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
     mesh.AddNodes(scene->mRootNode, -1);
     mesh.AddMeshes(cfg, stats, scene, scene->mRootNode, aiMatrix4x4());
     mesh.ComputeStaticPos();
+    if (mesh.m_rawposition.empty()) {
+        throw MeshError("empty mesh");
+    }
+    if (stats) {
+        float min[3], max[3];
+        min[0] = max[0] = mesh.m_rawposition[0].x;
+        min[1] = max[1] = mesh.m_rawposition[0].y;
+        min[2] = max[2] = mesh.m_rawposition[0].z;
+        for (const aiVector3D v : mesh.m_rawposition) {
+            min[0] = std::min(min[0], v.x);
+            max[0] = std::max(max[0], v.x);
+            min[1] = std::min(min[1], v.y);
+            max[1] = std::max(max[1], v.y);
+            min[2] = std::min(min[2], v.z);
+            max[2] = std::max(max[2], v.z);
+        }
+        fmt::print(stats, "\n========== BOUNDS ==========\n");
+        fmt::print(stats, "Bounding box: ({}, {}, {}) ({}, {}, {})\n", min[0],
+                   min[1], min[2], max[0], max[1], max[2]);
+        float amax[3];
+        for (int i = 0; i < 3; i++) {
+            amax[i] = std::max(-min[i], max[i]);
+        }
+        fmt::print(stats, "Absolute bounds: ({}, {}, {})\n", amax[0], amax[1],
+                   amax[2]);
+        fmt::print(stats, "\n");
+    }
     return mesh;
 }
 
