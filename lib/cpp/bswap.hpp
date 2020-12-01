@@ -21,4 +21,11 @@ inline uint32_t BSwapPutF32(float x) {
     return BSwap32(u.i);
 }
 
+#if __BYTE_ORDER__ && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#elif __BYTE_ORDER__ && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#error "Big endian is unsupported"
+#else
+#error "Unknown endian"
+#endif
+
 } // namespace util
