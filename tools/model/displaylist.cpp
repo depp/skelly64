@@ -2,6 +2,7 @@
 
 #include "tools/modelconvert/compile.hpp"
 #include "tools/util/bswap.hpp"
+#include "tools/util/pack.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -70,6 +71,45 @@ void DisplayList::Vertex(int offset, const std::vector<Vtx> &vertexes) {
             std::swap(m_cmds.at(idx), m_cmds.at(idx + 1));
         } else {
             m_has_tri1 = false;
+        }
+    }
+}
+
+void DisplayList::SetVertexColor(int vertex, std::array<uint8_t, 4> value) {
+    Vtx *vtx = m_cache.Get(vertex);
+    if (vtx == nullptr) {
+        throw std::runtime_error("cannot modify vertex, not in cache");
+    }
+    if (vtx->color != value) {
+        vtx->color = value;
+        FlushVertex(vertex);
+        m_cmds.push_back(Gfx::SPModifyVertex(vertex, VertexField::RGBA,
+                                             util::Pack8x4(value)));
+    }
+}
+
+void DisplayList::SetVertexTexcoord(int vertex, std::array<int16_t, 2> value) {
+    Vtx *vtx = m_cache.Get(vertex);
+    if (vtx == nullptr) {
+        throw std::runtime_error("cannot modify vertex, not in cache");
+    }
+    if (vtx->texcoord != value) {
+        vtx->texcoord = value;
+        FlushVertex(vertex);
+        // HACK: We are just hard-coding the RSP scaling factor here.
+        m_cmds.push_back(
+            Gfx::SPModifyVertex(vertex, VertexField::ST,
+                                util::Pack16x2(value[0] >> 1, value[1] >> 1)));
+    }
+}
+
+void DisplayList::FlushVertex(int vertex) {
+    if (m_has_tri1) {
+        for (const int vertex_id : m_tri1) {
+            if (vertex_id == vertex) {
+                m_has_tri1 = false;
+                break;
+            }
         }
     }
 }

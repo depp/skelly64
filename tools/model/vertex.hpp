@@ -91,17 +91,6 @@ struct Material {
 
     // Import a material from Assimp.
     static Material Import(const Config &cfg, aiMaterial *mat);
-
-    // Write commands to a display list, given the previous state.
-    void Write(const Material &state, std::vector<Gfx> *dl) const;
-
-    bool operator==(const Material &v) const;
-    bool operator!=(const Material &v) const;
-    uint32_t Hash() const;
-};
-
-struct HashMaterial {
-    uint32_t operator()(const Material &v) const { return v.Hash(); }
 };
 
 } // namespace modelconvert

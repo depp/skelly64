@@ -45,6 +45,7 @@ uint32_t Triangle(std::array<int, 3> v) {
 
 enum {
     G_VTX = 0x01,
+    G_MODIFYVTX = 0x02,
     G_TRI1 = 0x05,
     G_TRI2 = 0x06,
     G_ENDDL = 0xdf,
@@ -57,6 +58,15 @@ Gfx Gfx::SPVertex(unsigned v, unsigned n, unsigned v0) {
     return Gfx{
         ShiftL(G_VTX, 24, 8) | ShiftL(n, 12, 8) | ShiftL(v0 + n, 1, 7),
         v,
+    };
+}
+
+Gfx Gfx::SPModifyVertex(int vertex, VertexField field, uint32_t value) {
+    return Gfx{
+        ShiftL(G_MODIFYVTX, 24, 8) |
+            ShiftL(static_cast<uint32_t>(field), 16, 8) |
+            ShiftL(vertex * 2, 0, 16),
+        value,
     };
 }
 

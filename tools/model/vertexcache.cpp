@@ -26,6 +26,14 @@ const Vtx *VertexCache::Get(int cache_slot) const {
     return e.valid ? &e.vertex : nullptr;
 }
 
+Vtx *VertexCache::Get(int cache_slot) {
+    if (cache_slot < 0 || cache_slot >= size()) {
+        throw std::range_error("VertexCache::Get: out of range");
+    }
+    Entry &e = m_entries.at(cache_slot);
+    return e.valid ? &e.vertex : nullptr;
+}
+
 int VertexCache::CachePos(std::array<int16_t, 3> pos) const {
     auto it = m_pos.find(pos);
     if (it == m_pos.end()) {

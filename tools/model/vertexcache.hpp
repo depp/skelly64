@@ -21,6 +21,7 @@ public:
 
     // Get the vertex in a slot, or null if the slot is empty.
     const Vtx *Get(int cache_slot) const;
+    Vtx *Get(int cache_slot);
 
     // Find a vertex with the given position, or return -1 if not present.
     int CachePos(std::array<int16_t, 3> pos) const;

@@ -27,6 +27,12 @@ public:
     // Load vertexes at the given location in cache.
     void Vertex(int offset, const std::vector<Vtx> &vertexes);
 
+    // Modify the color of a vertex in the cache.
+    void SetVertexColor(int vertex, std::array<uint8_t, 4> value);
+
+    // Modify the texture coordinate of a vertex in the cache.
+    void SetVertexTexcoord(int vertex, std::array<int16_t, 2> value);
+
     // End display list.
     void End();
 
@@ -34,6 +40,9 @@ public:
     std::vector<uint8_t> Emit() const;
 
 private:
+    // Flush pending triangles with the given vertex.
+    void FlushVertex(int vertex);
+
     VertexCache m_cache;
 
     std::vector<Gfx> m_cmds;

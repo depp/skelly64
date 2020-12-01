@@ -345,7 +345,7 @@ private:
                 if (sv == nullptr) {
                     throw std::runtime_error("missing slot data");
                 }
-                // Emit attribute fixups here.
+                dl->SetVertexTexcoord(slot, v.vertex.texcoord);
             }
             dl->Triangle(tidx);
         }

@@ -27,6 +27,7 @@ cc_binary(
         "//tools/util:expr",
         "//tools/util:flag",
         "//tools/util:hash",
+        "//tools/util:pack",
         "//tools/util:quote",
         "@assimp",
         "@fmt",
