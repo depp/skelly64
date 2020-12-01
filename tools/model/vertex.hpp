@@ -64,7 +64,7 @@ struct BoneWeight {
 };
 
 // All data that could be associated with a vertex in one structure.
-struct Vertex {
+struct GBIVertex {
     std::array<int16_t, 3> pos;
     std::array<int16_t, 2> texcoord;
     std::array<uint8_t, 3> color;
@@ -72,19 +72,13 @@ struct Vertex {
     std::array<int8_t, 3> normal;
     std::array<BoneWeight, MaxBones> bone_weights;
 
-    bool operator==(const Vertex &v) const;
-    bool operator!=(const Vertex &v) const;
+    bool operator==(const GBIVertex &v) const;
+    bool operator!=(const GBIVertex &v) const;
     uint32_t Hash() const;
 };
 
-// A vertex and its floating-point coordinates.
-struct FVertex {
-    Vertex vert;
-    std::array<float, 3> pos;
-};
-
 struct HashVertex {
-    uint32_t operator()(const Vertex &v) const { return v.Hash(); }
+    uint32_t operator()(const GBIVertex &v) const { return v.Hash(); }
 };
 
 // Information about a material.
@@ -101,19 +95,13 @@ struct Material {
     // Write commands to a display list, given the previous state.
     void Write(const Material &state, std::vector<Gfx> *dl) const;
 
-    bool operator==(const Vertex &v) const;
-    bool operator!=(const Vertex &v) const;
+    bool operator==(const Material &v) const;
+    bool operator!=(const Material &v) const;
     uint32_t Hash() const;
 };
 
 struct HashMaterial {
-    uint32_t operator()(const Vertex &v) const { return v.Hash(); }
-};
-
-// An individual triangle in a mesh.
-struct Triangle {
-    unsigned material;
-    std::array<unsigned, 3> vertex;
+    uint32_t operator()(const Material &v) const { return v.Hash(); }
 };
 
 } // namespace modelconvert

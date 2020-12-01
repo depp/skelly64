@@ -1,5 +1,6 @@
-#include "tools/modelconvert/batch.hpp"
+#include "tools/modelconvert/compile.hpp"
 #include "tools/modelconvert/config.hpp"
+#include "tools/modelconvert/displaylist.hpp"
 #include "tools/modelconvert/mesh.hpp"
 #include "tools/util/expr.hpp"
 #include "tools/util/expr_flag.hpp"
@@ -19,6 +20,9 @@
 
 namespace modelconvert {
 namespace {
+
+// Number of entries in the vertex cache.
+constexpr unsigned VertexCacheSize = 32;
 
 class AxesFlag : public flag::FlagBase {
     Axes *m_ptr;
@@ -163,16 +167,6 @@ void VisitNode(std::FILE *stats, aiNode *node, int indent = 2) {
     }
 }
 
-void MeshInfo(std::FILE *stats, const Mesh &mesh) {
-    fmt::print(stats, "Vertexes: {}\nTriangles: {}\n",
-               mesh.vertexes.vertexes.size(), mesh.triangles.size());
-    const std::array<int16_t, 3> min = mesh.bounds_min, max = mesh.bounds_max;
-    fmt::print(stats, "Bounds: ({}, {}, {}) ({}, {}, {})\n", min[0], min[1],
-               min[2], max[0], max[1], max[2]);
-    fmt::print(stats, "Size: ({}, {}, {})\n", max[0] - min[0], max[1] - min[1],
-               max[2] - min[2]);
-}
-
 void WriteFile(const std::string &out, const std::vector<uint8_t> &data) {
     FILE *fp = std::fopen(out.c_str(), "wb");
     if (fp == nullptr) {
@@ -193,25 +187,6 @@ void Main(int argc, char **argv) {
     Config cfg = args.config;
     Assimp::Importer importer;
 
-    File stats;
-    if (!args.output_stats.empty()) {
-        stats = File{std::fopen(args.output_stats.c_str(), "w")};
-        if (!stats) {
-            err(1, "could not open '%s'", args.output_stats.c_str());
-        }
-    }
-
-    // Import mesh.
-    const aiScene *scene = importer.ReadFile(
-        args.model, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
-    if (scene == nullptr) {
-        fmt::print(stderr, "Error: could not import {}: {}\n",
-                   util::Quote(args.model), importer.GetErrorString());
-        std::exit(1);
-    }
-    if (stats) {
-        fmt::print(stats, "Axes: {}\n", cfg.axes.ToString());
-    }
     {
         util::Expr::Env env;
         if (args.meter) {
@@ -223,10 +198,35 @@ void Main(int argc, char **argv) {
             fmt::print(stderr, "Error: scale must be a positive number\n");
             std::exit(1);
         }
-        if (stats) {
-            fmt::print(stats, "Scale: {}\n", scale);
-        }
+        cfg.scale = scale;
+    }
 
+    File stats;
+    if (!args.output_stats.empty()) {
+        stats = File{std::fopen(args.output_stats.c_str(), "w")};
+        if (!stats) {
+            err(1, "could not open '%s'", args.output_stats.c_str());
+        }
+        fmt::print(stats, "Config:\n");
+        fmt::print(stats, "    Primitive color: {}\n", cfg.use_primitive_color);
+        fmt::print(stats, "    Normals: {}\n", cfg.use_normals);
+        fmt::print(stats, "    Texcoords: {}\n", cfg.use_texcoords);
+        fmt::print(stats, "    Vertex colors: {}\n", cfg.use_vertex_colors);
+        fmt::print(stats, "    Texcoord bits: {}\n", cfg.texcoord_bits);
+        fmt::print(stats, "    Scale: {}\n", cfg.scale);
+        fmt::print(stats, "    Axes: {}\n", cfg.axes.ToString());
+        fmt::print(stats, "    Animate: {}\n", cfg.animate);
+    }
+
+    // Import mesh.
+    const aiScene *scene = importer.ReadFile(
+        args.model, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    if (scene == nullptr) {
+        fmt::print(stderr, "Error: could not import {}: {}\n",
+                   util::Quote(args.model), importer.GetErrorString());
+        std::exit(1);
+    }
+    {
         float max[3] = {0.0f, 0.0f, 0.0f};
         for (aiMesh **ptr = scene->mMeshes, **end = ptr + scene->mNumMeshes;
              ptr != end; ptr++) {
@@ -252,36 +252,21 @@ void Main(int argc, char **argv) {
             double max3 = std::max(std::max(max[0], max[1]), max[2]);
             fmt::print(stats, "Maximum absolute coordinate: {}\n", max3);
         }
-        cfg.scale = scale;
     }
     if (stats) {
         fmt::print(stats, "Nodes:\n");
         VisitNode(stats, scene->mRootNode);
     }
-    VertexSet verts;
 
-    Mesh mesh{};
-    mesh.AddNodes(cfg, stats, scene->mRootNode);
-    for (aiMesh **ptr = scene->mMeshes,
-                **end = scene->mMeshes + scene->mNumMeshes;
-         ptr != end; ptr++) {
-        mesh.AddMesh(cfg, stats, *ptr);
+    Mesh mesh = Mesh::Import(cfg, stats, scene);
+    if (stats != nullptr) {
+        mesh.Dump(stats);
     }
-    if (stats) {
-        MeshInfo(stats, mesh);
-    }
-    BatchMesh bmesh = mesh.MakeBatches(32);
-    if (stats) {
-        bmesh.Dump(stats);
-    }
-    std::vector<Material> materials;
-    for (aiMaterial **ptr = scene->mMaterials,
-                    **end = ptr + scene->mNumMaterials;
-         ptr != end; ptr++) {
-        materials.push_back(Material::Import(cfg, *ptr));
-    }
+
+    gbi::DisplayList dl{VertexCacheSize};
+    gbi::CompileMesh(&dl, mesh, cfg, stats);
     if (!args.output.empty()) {
-        std::vector<uint8_t> data = bmesh.EmitGBI(cfg, materials);
+        std::vector<uint8_t> data = dl.Emit();
         WriteFile(args.output, data);
     }
 }

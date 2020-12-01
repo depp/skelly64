@@ -1,18 +1,242 @@
 #include "tools/modelconvert/mesh.hpp"
 
+#include "tools/modelconvert/config.hpp"
+
+#include <assimp/scene.h>
+#include <cassert>
 #include <fmt/core.h>
 
 namespace modelconvert {
 
-unsigned VertexSet::Add(const FVertex &v) {
-    auto it = indexes.find(v.vert);
-    if (it != indexes.end()) {
-        return it->second;
+std::string_view Str(const aiString &s) {
+    return std::string_view(s.data, s.length);
+}
+
+namespace {
+
+std::array<float, 3> ImportVector(const aiVector3D &v) {
+    return {{v.x, v.y, v.z}};
+}
+
+std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
+    std::array<float, 4> arr = {{color.r, color.g, color.b, color.a}};
+    std::array<uint8_t, 4> rgba;
+    for (int i = 0; i < 4; i++) {
+        float c = arr[i];
+        int v = 255;
+        if (c < 1.0f) {
+            if (c > 0.0f) {
+                v = std::lrintf(256.0f * c);
+                if (v > 255) {
+                    v = 255;
+                }
+            } else {
+                v = 0;
+            }
+        }
+        rgba[i] = v;
     }
-    unsigned index = vertexes.size();
-    vertexes.emplace_back(v);
-    indexes.emplace(v.vert, index);
-    return index;
+    return rgba;
+}
+
+// Quantize a floating-point 3D vector to a 16-bit integer 3D vector.
+std::array<int16_t, 3> QuantizeVector(std::array<float, 3> v) {
+    std::array<int16_t, 3> r;
+    for (int i = 0; i < 3; i++) {
+        float fx = v[i];
+        int ix;
+        if (std::isnan(fx)) {
+            ix = 0;
+        } else if (fx < std::numeric_limits<int16_t>::min()) {
+            ix = std::numeric_limits<int16_t>::min();
+        } else if (fx > std::numeric_limits<int16_t>::max()) {
+            ix = std::numeric_limits<int16_t>::max();
+        } else {
+            ix = std::lrintf(fx);
+        }
+        r[i] = ix;
+    }
+    return r;
+}
+
+} // namespace
+
+Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
+    Mesh mesh;
+    mesh.AddNode(scene->mRootNode, -1);
+    for (aiMesh **ptr = scene->mMeshes,
+                **end = scene->mMeshes + scene->mNumMeshes;
+         ptr != end; ptr++) {
+        mesh.AddMesh(cfg, stats, *ptr);
+    }
+    mesh.ComputeStaticPos();
+    return mesh;
+}
+
+void Mesh::Dump(std::FILE *stats) const {
+    assert(stats != nullptr);
+    fmt::print(stats,
+               "Imported model:\n"
+               "    Vertexes: {}\n    Triangles: {}\n"
+               "    Nodes: {}\n    Bones: {}\n",
+               m_vertex.size(), m_triangle.size(), m_node.size(),
+               m_bone_names.size());
+}
+
+void Mesh::AddNode(const aiNode *node, int parent) {
+    size_t n = m_node.size();
+    if (n > std::numeric_limits<int>::max()) {
+        throw std::runtime_error("too many nodes");
+    }
+    int index = n;
+    m_node.emplace_back(parent, std::string(Str(node->mName)));
+    for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
+         cp != ce; cp++) {
+        AddNode(*cp, index);
+    }
+}
+
+void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh) {
+    if (mesh->mNumVertices > std::numeric_limits<int>::max()) {
+        throw std::runtime_error("too many vertexes");
+    }
+    const int nvert = mesh->mNumVertices;
+    if (m_vertex.size() >
+        static_cast<size_t>(std::numeric_limits<int>::max() - nvert)) {
+        throw MeshError("too many vertexes");
+    }
+    const int offset = m_vertex.size();
+    m_vertex.resize(offset + nvert, Vertex{});
+
+    // Get vertex positions.
+    {
+        const float scale = cfg.scale;
+        const aiVector3D *posarr = mesh->mVertices;
+        for (int i = 0; i < nvert; i++) {
+            std::array<float, 3> pos = ImportVector(posarr[i]);
+            pos = cfg.axes.Apply(pos);
+            for (int i = 0; i < 3; i++) {
+                pos[i] *= scale;
+            }
+            m_vertex.at(offset + i).pos = pos;
+        }
+    }
+
+    // Get texture coordinates.
+    if (cfg.use_texcoords) {
+        const aiVector3D *texcoordarr = mesh->mTextureCoords[0];
+        if (texcoordarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No texture coordinates\n");
+            }
+            goto done_texcoords;
+        }
+        if (cfg.texcoord_bits < 0 || cfg.texcoord_bits >= 32) {
+            throw std::range_error("texcoord_bits out of range");
+        }
+        const float scale = 1 << cfg.texcoord_bits;
+        for (int i = 0; i < nvert; i++) {
+            std::array<float, 3> ftexcoord = ImportVector(texcoordarr[i]);
+            ftexcoord[1] = 1.0f - ftexcoord[1];
+            std::array<int16_t, 2> itexcoord;
+            for (int j = 0; j < 2; j++) {
+                const float v = ftexcoord[j] * scale;
+                int iv;
+                if (v > std::numeric_limits<int16_t>::min()) {
+                    if (v < std::numeric_limits<int16_t>::max()) {
+                        iv = std::lrintf(v);
+                    } else {
+                        iv = std::numeric_limits<int16_t>::max();
+                    }
+                } else {
+                    iv = std::numeric_limits<int16_t>::min();
+                }
+                itexcoord[j] = iv;
+            }
+            m_vertex.at(offset + i).texcoord = itexcoord;
+        }
+    }
+done_texcoords:
+
+    // Get vertex colors.
+    if (cfg.use_vertex_colors) {
+        const aiColor4D *colorarr = mesh->mColors[0];
+        if (colorarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No colors\n");
+            }
+            goto done_colors;
+        }
+        for (int i = 0; i < nvert; i++) {
+            m_vertex.at(offset + i).color = ImportColor(colorarr[i]);
+        }
+    }
+done_colors:
+
+    // Get vertex normals.
+    if (cfg.use_normals) {
+        const aiVector3D *normarr = mesh->mNormals;
+        if (normarr == nullptr) {
+            if (stats != nullptr) {
+                fmt::print(stats, "No normals\n");
+            }
+            goto done_normals;
+        }
+        for (int i = 0; i < nvert; i++) {
+            std::array<float, 3> fnorm = ImportVector(normarr[i]);
+            fnorm = cfg.axes.Apply(fnorm);
+            std::array<int8_t, 3> inorm;
+            for (int j = 0; j < 3; j++) {
+                // 11.7.2 Normal Vector Normalization: limit to 127, but Q&A 3D
+                // Calculations Q3 explains that 128 is 1.0.
+                const float v = fnorm[j] * 128.0f;
+                int iv;
+                if (v > std::numeric_limits<int8_t>::min()) {
+                    if (v < std::numeric_limits<int8_t>::max()) {
+                        iv = std::lrintf(v);
+                    } else {
+                        iv = std::numeric_limits<int8_t>::max();
+                    }
+                } else {
+                    iv = std::numeric_limits<int8_t>::min();
+                }
+                inorm[j] = iv;
+            }
+            m_vertex.at(offset + i).normal = inorm;
+        }
+    }
+done_normals:;
+
+    {
+        int material = mesh->mMaterialIndex;
+        int nfaces = mesh->mNumFaces;
+        const aiFace *faces = mesh->mFaces;
+        for (int i = 0; i < nfaces; i++) {
+            int nindex = faces[i].mNumIndices;
+            const unsigned *indexes = faces[i].mIndices;
+            if (nindex != 3) {
+                throw MeshError(
+                    fmt::format("face is not a triangle, vertexes={}", nindex));
+            }
+            Triangle tri{};
+            tri.material = material;
+            for (int j = 0; j < nindex; j++) {
+                unsigned idx = indexes[j];
+                if (idx >= static_cast<unsigned>(nvert)) {
+                    throw MeshError("invalid vertex index");
+                }
+                tri.vertex[j] = offset + idx;
+            }
+            m_triangle.push_back(tri);
+        }
+    }
+}
+
+void Mesh::ComputeStaticPos() {
+    m_vertexpos.resize(m_vertex.size());
+    for (size_t i = 0; i < m_vertex.size(); i++) {
+        m_vertexpos.at(i) = QuantizeVector(m_vertex.at(i).pos);
+    }
 }
 
 } // namespace modelconvert

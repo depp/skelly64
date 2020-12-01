@@ -1,7 +1,6 @@
 #pragma once
 
 #include "tools/modelconvert/axes.hpp"
-#include "tools/modelconvert/vertex.hpp"
 
 #include <algorithm>
 #include <array>
@@ -13,14 +12,14 @@
 #include <unordered_map>
 #include <vector>
 
-struct aiMaterial;
 struct aiMesh;
 struct aiNode;
+struct aiScene;
 struct aiString;
 
 namespace modelconvert {
 
-struct Gfx;
+struct Config;
 
 std::string_view Str(const aiString &s);
 
@@ -29,17 +28,6 @@ public:
     MeshError(const char *msg) : runtime_error{msg} {}
     MeshError(const std::string &msg) : runtime_error{msg} {}
 };
-
-// A set of vertexes. Deduplicates vertexes as they are added.
-struct VertexSet {
-    std::vector<FVertex> vertexes;
-    std::unordered_map<Vertex, unsigned, HashVertex> indexes;
-
-    // Add a vertex if it is not already present. Return its index.
-    unsigned Add(const FVertex &v);
-};
-
-struct BatchMesh;
 
 // Information about a node in the hierarchy.
 struct Node {
@@ -50,23 +38,70 @@ struct Node {
     std::string name;
 };
 
+// Vertex attributes, other than position.
+struct VertexAttr {
+    std::array<int16_t, 2> texcoord;
+    std::array<uint8_t, 4> color;
+    std::array<int8_t, 3> normal;
+
+    bool operator==(const VertexAttr &other) const {
+        return texcoord == other.texcoord && color == other.color &&
+               normal == other.normal;
+    }
+
+    bool operator!=(const VertexAttr &other) const { return !(*this == other); }
+};
+
+// Vertex attributes, including position.
+struct Vertex : VertexAttr {
+    std::array<float, 3> pos;
+};
+
+// An individual triangle in a mesh.
+struct Triangle {
+    int material;
+    std::array<int, 3> vertex;
+};
+
 // A complete mesh.
-struct Mesh {
-    VertexSet vertexes;
-    std::vector<Triangle> triangles;
-    std::unordered_map<std::string, uint32_t> bone_names;
-    std::vector<Node> nodes;
-    std::array<int16_t, 3> bounds_min, bounds_max;
+class Mesh {
+    // Vertex data.
+    std::vector<Vertex> m_vertex;
 
-    // Recursively add nodes from the given hierarchy.
-    void AddNodes(const Config &cfg, std::FILE *stats, aiNode *node);
+    // Triangles.
+    std::vector<Triangle> m_triangle;
 
-    // Add an Assimp mesh to the mesh, giving its faces the given material
-    // index.
-    void AddMesh(const Config &cfg, std::FILE *stats, aiMesh *mesh);
+    // Bones and nodes.
+    std::unordered_map<std::string, int> m_bone_names;
+    std::vector<Node> m_node;
 
-    // Convert the mesh into batches of triangle, where each batch fits
-    BatchMesh MakeBatches(unsigned cache_size);
+    // Quantized vertex positions.
+    std::vector<std::array<int16_t, 3>> m_vertexpos;
+
+public:
+    // Import a scene as a mesh.
+    static Mesh Import(const Config &cfg, std::FILE *stats,
+                       const aiScene *scene);
+
+    // Dump mesh info to file.
+    void Dump(std::FILE *stats) const;
+
+    const std::vector<Vertex> &vertex_data() const { return m_vertex; }
+    const std::vector<Triangle> &triangle_data() const { return m_triangle; }
+    const std::vector<std::array<int16_t, 3>> &position_data() const {
+        return m_vertexpos;
+    }
+
+private:
+    // Add a node and all its children recursively, given the index of the
+    // parent.
+    void AddNode(const aiNode *node, int parent);
+
+    // Add a AssImp mesh.
+    void AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh);
+
+    // Compute static vertex positions.
+    void ComputeStaticPos();
 };
 
 } // namespace modelconvert
