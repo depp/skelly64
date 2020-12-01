@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <vector>
 
+struct aiAnimation;
 struct aiMesh;
 struct aiNode;
 struct aiScene;
@@ -32,6 +33,19 @@ public:
     MeshError(const std::string &msg) : runtime_error{msg} {}
 };
 
+// A single vertex under the influence of a bone.
+struct BoneVertex {
+    int index;
+    float weight;
+};
+
+struct Bone {
+    int node;
+    std::string name;
+    std::vector<BoneVertex> vertex;
+    aiMatrix4x4 offset_matrix; // mesh space -> bone space
+};
+
 // Information about a node in the hierarchy.
 struct Node {
     Node(int parent, std::string name)
@@ -39,6 +53,7 @@ struct Node {
 
     int parent;
     std::string name;
+    aiMatrix4x4 transform;
 };
 
 // Vertex attributes, other than position.
@@ -74,7 +89,8 @@ class Mesh {
     std::vector<Triangle> m_triangle;
 
     // Bones and nodes.
-    std::unordered_map<std::string, int> m_bone_names;
+    std::unordered_map<std::string, int> m_node_names; // -1 = multiple.
+    std::vector<Bone> m_bone;
     std::vector<Node> m_node;
 
     // Quantized vertex positions.
@@ -107,8 +123,11 @@ private:
     void AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
                  const aiMatrix4x4 &transform);
 
-    // Compute static vertex positions.
-    void ComputeStaticPos();
+    // Add an animation to the mesh.
+    void AddAnimation(const aiAnimation *animation);
+
+    // Set the vertex positions.
+    void SetVertexPos(const std::vector<aiVector3D> &position);
 };
 
 } // namespace modelconvert

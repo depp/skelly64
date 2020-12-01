@@ -1,6 +1,7 @@
 #include "tools/modelconvert/mesh.hpp"
 
 #include "tools/modelconvert/config.hpp"
+#include "tools/util/quote.hpp"
 
 #include <assimp/scene.h>
 #include <cassert>
@@ -68,9 +69,15 @@ Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
     mesh.m_transform = cfg.axes.ToMatrix() * scale;
     mesh.AddNodes(scene->mRootNode, -1);
     mesh.AddMeshes(cfg, stats, scene, scene->mRootNode, aiMatrix4x4());
-    mesh.ComputeStaticPos();
     if (mesh.m_rawposition.empty()) {
         throw MeshError("empty mesh");
+    }
+    mesh.SetVertexPos(mesh.m_rawposition);
+    if (cfg.animate) {
+        aiAnimation **ap = scene->mAnimations;
+        if (scene->mNumAnimations >= 2) {
+            mesh.AddAnimation(ap[1]);
+        }
     }
     if (stats) {
         float min[3], max[3];
@@ -106,7 +113,7 @@ void Mesh::Dump(std::FILE *stats) const {
                "    Vertexes: {}\n    Triangles: {}\n"
                "    Nodes: {}\n    Bones: {}\n",
                m_vertex.size(), m_triangle.size(), m_node.size(),
-               m_bone_names.size());
+               m_bone.size());
 }
 
 void Mesh::AddNodes(const aiNode *node, int parent) {
@@ -116,6 +123,14 @@ void Mesh::AddNodes(const aiNode *node, int parent) {
     }
     int index = n;
     m_node.emplace_back(parent, std::string(Str(node->mName)));
+    Node &nn = m_node.back();
+    nn.transform = node->mTransformation;
+    auto entry = m_node_names.find(nn.name);
+    if (entry == m_node_names.end()) {
+        m_node_names.emplace(nn.name, index);
+    } else {
+        entry->second = -1;
+    }
     for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
          cp != ce; cp++) {
         AddNodes(*cp, index);
@@ -155,9 +170,10 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
 
     // Get vertex positions.
     {
+        (void)&transform;
         const aiVector3D *posarr = mesh->mVertices;
         for (int i = 0; i < nvert; i++) {
-            m_rawposition.at(offset + i) = transform * posarr[i];
+            m_rawposition.at(offset + i) = posarr[i];
         }
     }
 
@@ -269,13 +285,157 @@ done_normals:;
             m_triangle.push_back(tri);
         }
     }
+
+    if (cfg.animate) {
+        for (aiBone **bp = mesh->mBones, **be = bp + mesh->mNumBones; bp != be;
+             bp++) {
+            const aiBone *bone = *bp;
+            std::string bone_name = std::string(Str(bone->mName));
+            auto entry = m_node_names.find(bone_name);
+            if (entry == m_node_names.end()) {
+                throw MeshError(fmt::format("no node for bone, name={}",
+                                            util::Quote(bone_name)));
+            }
+            int node_index = entry->second;
+            if (node_index < 0) {
+                throw MeshError(fmt::format("multiple nodes for bone, name={}",
+                                            util::Quote(bone_name)));
+            }
+            Bone b{};
+            b.node = node_index;
+            b.name = bone_name;
+            b.offset_matrix = bone->mOffsetMatrix;
+            const unsigned num_weights = bone->mNumWeights;
+            const aiVertexWeight *weights = bone->mWeights;
+            for (unsigned i = 0; i < num_weights; i++) {
+                b.vertex.push_back(BoneVertex{
+                    offset + static_cast<int>(weights[i].mVertexId),
+                    weights[i].mWeight,
+                });
+            }
+            m_bone.push_back(std::move(b));
+        }
+    }
 }
 
-void Mesh::ComputeStaticPos() {
+void Mesh::SetVertexPos(const std::vector<aiVector3D> &pos) {
     m_vertexpos.resize(m_vertex.size());
     for (size_t i = 0; i < m_vertex.size(); i++) {
-        m_vertexpos.at(i) = QuantizeVector(m_transform * m_rawposition.at(i));
+        m_vertexpos.at(i) = QuantizeVector(m_transform * pos.at(i));
     }
+}
+
+namespace {
+
+// Interpolate between vectors.
+aiVector3D Interpolate(const aiVector3D &a, const aiVector3D &b, double frac) {
+    return a * static_cast<float>(1.0 - frac) + b * static_cast<float>(frac);
+}
+
+// Interpolate between quaternions.
+aiQuaternion Interpolate(const aiQuaternion &a, const aiQuaternion &b,
+                         double frac) {
+    aiQuaternion r;
+    aiQuaternion::Interpolate(r, a, b, static_cast<float>(frac));
+    return r;
+}
+
+// Read an object from an animation channel.
+template <typename Key>
+typename Key::elem_type ReadObject(double time, const Key *keys, unsigned count,
+                                   typename Key::elem_type default_value) {
+    if (count == 0) {
+        return default_value;
+    }
+    unsigned idx = 0;
+    while (idx < count && time >= keys[idx].mTime) {
+        idx++;
+    }
+    if (idx == 0) {
+        return keys[0].mValue;
+    }
+    if (idx == count) {
+        return keys[idx - 1].mValue;
+    }
+    const Key &a = keys[idx - 1];
+    const Key &b = keys[idx];
+    double delta = b.mTime - a.mTime;
+    if (!(delta > 1e-5)) {
+        return a.mValue;
+    }
+    double frac = (time - a.mTime) / delta;
+    return Interpolate(a.mValue, b.mValue, frac);
+}
+
+} // namespace
+
+void Mesh::AddAnimation(const aiAnimation *animation) {
+    std::string node_name;
+    const double time = animation->mDuration * 1.0;
+    int nodecount = m_node.size();
+    int vertcount = m_vertex.size();
+    std::vector<aiMatrix4x4> local_transform(nodecount);
+    for (size_t i = 0; i < local_transform.size(); i++) {
+        local_transform[i] = m_node[i].transform;
+    }
+    std::vector<aiMatrix4x4> global_transform(nodecount);
+    std::vector<aiVector3D> vectors(vertcount);
+
+    // Update local transforms.
+    for (aiNodeAnim **cp = animation->mChannels,
+                    **ce = cp + animation->mNumChannels;
+         cp != ce; cp++) {
+        aiNodeAnim *chan = *cp;
+        node_name = std::string(Str(chan->mNodeName));
+        const auto entry = m_node_names.find(node_name);
+        if (entry == m_node_names.end()) {
+            throw MeshError(fmt::format(
+                "animation refers to unknown node, animation={}, node={}",
+                util::Quote(Str(animation->mName)), util::Quote(node_name)));
+        }
+        const int node_index = entry->second;
+        if (node_index == -1) {
+            throw MeshError(fmt::format(
+                "multiple nodes match animation channel, animation={}, node={}",
+                util::Quote(Str(animation->mName)), util::Quote(node_name)));
+        }
+        // Find key after the given point in time.
+        const aiVector3D position =
+            ReadObject(time, chan->mPositionKeys, chan->mNumPositionKeys,
+                       aiVector3D(0.0f));
+        aiQuaternion rotation = ReadObject(
+            time, chan->mRotationKeys, chan->mNumRotationKeys, aiQuaternion());
+        const aiVector3D scaling = ReadObject(
+            time, chan->mScalingKeys, chan->mNumScalingKeys, aiVector3D(1.0f));
+        local_transform.at(node_index) =
+            aiMatrix4x4(scaling, rotation, position);
+    }
+
+    // Update global transforms.
+    for (int i = 0; i < nodecount; i++) {
+        const Node &nn = m_node.at(i);
+        aiMatrix4x4 &gmat = global_transform.at(i);
+        const aiMatrix4x4 &lmat = local_transform.at(i);
+        if (nn.parent == -1) {
+            gmat = lmat;
+        } else {
+            const aiMatrix4x4 &parent = global_transform.at(nn.parent);
+            gmat = parent * lmat;
+        }
+    }
+
+    // Evaluate bones.
+    for (aiVector3D &v : vectors) {
+        v = aiVector3D();
+    }
+    for (const Bone &bone : m_bone) {
+        aiMatrix4x4 mat = global_transform.at(bone.node) * bone.offset_matrix;
+        for (const BoneVertex &v : bone.vertex) {
+            vectors.at(v.index) += (mat * m_rawposition.at(v.index)) * v.weight;
+        }
+    }
+
+    SetVertexPos(vectors);
 }
 
 } // namespace modelconvert
