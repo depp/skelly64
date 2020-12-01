@@ -123,7 +123,7 @@ public:
         vorder.at(0).same = false;
         for (int i = 1; i < nvert; i++) {
             VOrder &x = vorder.at(i), &y = vorder.at(i - 1);
-            x.same = x.pos == y.pos;
+            x.same = x.pos == y.pos && x.normal == y.normal;
         }
 
         // Assign each vertex to a group.
