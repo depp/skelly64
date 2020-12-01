@@ -4,6 +4,7 @@ load("//base:copts.bzl", "CXXOPTS")
 cc_binary(
     name = "modelconvert",
     srcs = [
+        "assimp.cpp",
         "axes.cpp",
         "axes.hpp",
         "compile.cpp",

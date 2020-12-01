@@ -69,7 +69,7 @@ void Sort3(std::array<int, 3> &arr) {
 class Compiler {
 public:
     Compiler(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
-        const std::vector<Vertex> &vdata = mesh.vertex_data();
+        const std::vector<VertexAttr> &vdata = mesh.vertex_data();
         const std::vector<std::array<int16_t, 3>> &vposdata =
             mesh.position_data();
         if (vdata.size() > std::numeric_limits<int>::max()) {
@@ -84,7 +84,7 @@ public:
         for (int i = 0; i < nvert; i++) {
             VState &v = m_vertex.at(i);
             v.vertex.pos = vposdata.at(i);
-            const Vertex &vv = vdata.at(i);
+            const VertexAttr &vv = vdata.at(i);
             v.vertex.pad = 0;
             v.vertex.texcoord = vv.texcoord;
             if (cfg.use_vertex_colors) {
@@ -113,7 +113,7 @@ public:
             VOrder &v = vorder.at(i);
             v.index = i;
             v.pos = vposdata.at(i);
-            const Vertex &d = vdata.at(i);
+            const VertexAttr &d = vdata.at(i);
             v.normal = d.normal;
             v.same = false;
         }

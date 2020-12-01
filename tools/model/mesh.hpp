@@ -2,6 +2,9 @@
 
 #include "tools/modelconvert/axes.hpp"
 
+#include <assimp/matrix4x4.h>
+#include <assimp/vector3.h>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -52,11 +55,6 @@ struct VertexAttr {
     bool operator!=(const VertexAttr &other) const { return !(*this == other); }
 };
 
-// Vertex attributes, including position.
-struct Vertex : VertexAttr {
-    std::array<float, 3> pos;
-};
-
 // An individual triangle in a mesh.
 struct Triangle {
     int material;
@@ -65,8 +63,12 @@ struct Triangle {
 
 // A complete mesh.
 class Mesh {
+    // Model transformation.
+    aiMatrix4x4 m_transform;
+
     // Vertex data.
-    std::vector<Vertex> m_vertex;
+    std::vector<aiVector3D> m_rawposition; // Untransformed.
+    std::vector<VertexAttr> m_vertex;
 
     // Triangles.
     std::vector<Triangle> m_triangle;
@@ -76,7 +78,7 @@ class Mesh {
     std::vector<Node> m_node;
 
     // Quantized vertex positions.
-    std::vector<std::array<int16_t, 3>> m_vertexpos;
+    std::vector<std::array<int16_t, 3>> m_vertexpos; // Transformed.
 
 public:
     // Import a scene as a mesh.
@@ -86,7 +88,7 @@ public:
     // Dump mesh info to file.
     void Dump(std::FILE *stats) const;
 
-    const std::vector<Vertex> &vertex_data() const { return m_vertex; }
+    const std::vector<VertexAttr> &vertex_data() const { return m_vertex; }
     const std::vector<Triangle> &triangle_data() const { return m_triangle; }
     const std::vector<std::array<int16_t, 3>> &position_data() const {
         return m_vertexpos;

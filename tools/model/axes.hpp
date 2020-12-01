@@ -1,5 +1,7 @@
 #pragma once
 
+#include <assimp/matrix4x4.h>
+
 #include <array>
 #include <string>
 #include <string_view>
@@ -19,6 +21,8 @@ public:
             negate[2] ? -vec[index[2]] : vec[index[2]],
         }};
     }
+
+    aiMatrix4x4 ToMatrix() const;
 
     std::string ToString() const;
     static Axes Parse(std::string_view s);

@@ -40,7 +40,7 @@ std::array<uint8_t, 4> ImportColor(const aiColor4D &color) {
 }
 
 // Quantize a floating-point 3D vector to a 16-bit integer 3D vector.
-std::array<int16_t, 3> QuantizeVector(std::array<float, 3> v) {
+std::array<int16_t, 3> QuantizeVector(aiVector3D v) {
     std::array<int16_t, 3> r;
     for (int i = 0; i < 3; i++) {
         float fx = v[i];
@@ -63,6 +63,9 @@ std::array<int16_t, 3> QuantizeVector(std::array<float, 3> v) {
 
 Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
     Mesh mesh;
+    aiMatrix4x4 scale;
+    aiMatrix4x4::Scaling(aiVector3D(cfg.scale), scale);
+    mesh.m_transform = cfg.axes.ToMatrix() * scale;
     mesh.AddNode(scene->mRootNode, -1);
     for (aiMesh **ptr = scene->mMeshes,
                 **end = scene->mMeshes + scene->mNumMeshes;
@@ -106,19 +109,14 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh) {
         throw MeshError("too many vertexes");
     }
     const int offset = m_vertex.size();
-    m_vertex.resize(offset + nvert, Vertex{});
+    m_rawposition.resize(offset + nvert);
+    m_vertex.resize(offset + nvert, VertexAttr{});
 
     // Get vertex positions.
     {
-        const float scale = cfg.scale;
         const aiVector3D *posarr = mesh->mVertices;
         for (int i = 0; i < nvert; i++) {
-            std::array<float, 3> pos = ImportVector(posarr[i]);
-            pos = cfg.axes.Apply(pos);
-            for (int i = 0; i < 3; i++) {
-                pos[i] *= scale;
-            }
-            m_vertex.at(offset + i).pos = pos;
+            m_rawposition.at(offset + i) = posarr[i];
         }
     }
 
@@ -235,7 +233,7 @@ done_normals:;
 void Mesh::ComputeStaticPos() {
     m_vertexpos.resize(m_vertex.size());
     for (size_t i = 0; i < m_vertex.size(); i++) {
-        m_vertexpos.at(i) = QuantizeVector(m_vertex.at(i).pos);
+        m_vertexpos.at(i) = QuantizeVector(m_transform * m_rawposition.at(i));
     }
 }
 

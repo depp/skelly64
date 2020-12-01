@@ -4,6 +4,17 @@
 
 namespace modelconvert {
 
+aiMatrix4x4 Axes::ToMatrix() const {
+    aiMatrix4x4 mat;
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++) {
+            mat[i][j] = 0.0f;
+        }
+        mat[i][index[i]] = negate[i] ? -1.0f : 1.0f;
+    }
+    return mat;
+}
+
 std::string Axes::ToString() const {
     std::string r;
     for (int i = 0; i < 3; i++) {
