@@ -78,14 +78,11 @@ public:
         }
 
         m_vertex.resize(nvert);
-        const std::vector<std::array<int16_t, 3>> *vertexpos =
-            &mesh.animation_frame.at(0);
-        if (cfg.animate) {
-            vertexpos = &mesh.animation_frame.at(4);
-        }
+        const std::vector<std::array<int16_t, 3>> &vertexpos =
+            mesh.animation_frame.at(0);
         for (int i = 0; i < nvert; i++) {
             VState &v = m_vertex.at(i);
-            v.vertex.pos = vertexpos->at(i);
+            v.vertex.pos = vertexpos.at(i);
             const VertexAttr &vv = mesh.vertex.at(i);
             v.vertex.pad = 0;
             v.vertex.texcoord = vv.texcoord;
@@ -114,18 +111,32 @@ public:
         for (int i = 0; i < nvert; i++) {
             VOrder &v = vorder.at(i);
             v.index = i;
-            v.pos = vertexpos->at(i);
+            v.pos = vertexpos.at(i);
             const VertexAttr &d = mesh.vertex.at(i);
             v.normal = d.normal;
             v.same = false;
         }
         std::sort(std::begin(vorder), std::end(vorder));
 
-        // Figure out which vertexes are different.
+        // Figure out which vertexes are different. Check all animation frames.
         vorder.at(0).same = false;
         for (int i = 1; i < nvert; i++) {
             VOrder &x = vorder.at(i), &y = vorder.at(i - 1);
             x.same = x.pos == y.pos && x.normal == y.normal;
+        }
+        if (cfg.animate) {
+            for (const std::vector<std::array<int16_t, 3>> &frame :
+                 mesh.animation_frame) {
+                std::array<int16_t, 3> prev = frame.at(vorder.at(0).index);
+                for (int i = 1; i < nvert; i++) {
+                    VOrder &vo = vorder.at(i);
+                    std::array<int16_t, 3> cur = frame.at(vo.index);
+                    if (prev != cur) {
+                        vo.same = false;
+                    }
+                    prev = cur;
+                }
+            }
         }
 
         // Assign each vertex to a group.
