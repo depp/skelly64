@@ -204,6 +204,12 @@ void Main(int argc, char **argv) {
     Mesh mesh = Mesh::Import(cfg, stats, scene);
 
     gbi::Model model = gbi::CompileMesh(mesh, cfg, stats);
+    if (stats) {
+        fmt::print(stats, "Display list commands: {}\n", model.command.size());
+        fmt::print(stats, "Vertexes: {}\n", model.vertex.size());
+        fmt::print(stats, "Animations: {}\n", model.animation.size());
+        fmt::print(stats, "Frames: {}\n", model.frame.size());
+    }
     if (!args.output.empty()) {
         std::vector<uint8_t> data = model.Emit(cfg);
         WriteFile(args.output, data);

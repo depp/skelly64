@@ -188,6 +188,44 @@ public:
         }
     }
 
+    void EmitAnimations(Model *model, const Mesh &mesh) const {
+        if (m_dl_vertex.size() != model->vertex.size()) {
+            // Assertion.
+            throw std::runtime_error("vertex size mismatch");
+        }
+        std::unordered_map<int, int> frame_map;
+        for (const auto &aptr : mesh.animation) {
+            Animation anim{};
+            if (aptr) {
+                const modelconvert::Animation &mesh_anim = *aptr;
+                anim.duration = mesh_anim.duration;
+                for (const auto &mesh_anim_frame : mesh_anim.frame) {
+                    int index;
+                    auto lookup = frame_map.find(mesh_anim_frame.data_index);
+                    if (lookup != frame_map.end()) {
+                        index = lookup->second;
+                    } else {
+                        const std::vector<std::array<int16_t, 3>> &frame =
+                            mesh.animation_frame.at(mesh_anim_frame.data_index);
+                        FrameData fdata{};
+                        fdata.pos.reserve(m_dl_vertex.size());
+                        for (const int vertex_id : m_dl_vertex) {
+                            fdata.pos.push_back(
+                                FrameVertex{frame.at(vertex_id), 0});
+                        }
+                        index = model->frame.size();
+                        model->frame.push_back(std::move(fdata));
+                    }
+                    AnimationFrame anim_frame{};
+                    anim_frame.time = mesh_anim_frame.time;
+                    anim_frame.index = index;
+                    anim.frame.push_back(anim_frame);
+                }
+            }
+            model->animation.push_back(std::move(anim));
+        }
+    }
+
 private:
     int BestTriangle() const {
         int best = -1;
@@ -412,6 +450,9 @@ Model CompileMesh(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
     Model model;
     model.command = dl.command();
     model.vertex = dl.vertex();
+    if (cfg.animate) {
+        compiler.EmitAnimations(&model, mesh);
+    }
     return model;
 }
 
