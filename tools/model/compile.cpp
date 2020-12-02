@@ -78,12 +78,10 @@ public:
         }
 
         m_vertex.resize(nvert);
-        const std::vector<std::array<int16_t, 3>> *vertexpos = &mesh.vertexpos;
+        const std::vector<std::array<int16_t, 3>> *vertexpos =
+            &mesh.animation_frame.at(0);
         if (cfg.animate) {
-            Animation *anim = mesh.animation.at(0).get();
-            if (anim != nullptr) {
-                vertexpos = &anim->frame.at(5).position;
-            }
+            vertexpos = &mesh.animation_frame.at(4);
         }
         for (int i = 0; i < nvert; i++) {
             VState &v = m_vertex.at(i);

@@ -46,8 +46,9 @@ struct AnimationFrame {
     // the animation.
     float time;
 
-    // Vertex position data.
-    std::vector<std::array<int16_t, 3>> position;
+    // Index of the frame position data, in the frame array, to display at this
+    // point in the animation.
+    int data_index;
 };
 
 // A mesh animation.
@@ -64,14 +65,13 @@ struct Mesh {
     // Vertex attributes, excluding position.
     std::vector<VertexAttr> vertex;
 
-    // Vertex position.
-    std::vector<std::array<int16_t, 3>> vertexpos;
-
     // Triangles.
     std::vector<Triangle> triangle;
 
-    // Animations. Some may be null.
+    // Animations, and the associated frame data. Some may be null. Frame 0 is
+    // the bind pose, it is always present.
     std::vector<std::unique_ptr<Animation>> animation;
+    std::vector<std::vector<std::array<int16_t, 3>>> animation_frame;
 
     // Import a scene as a mesh.
     static Mesh Import(const Config &cfg, std::FILE *stats,

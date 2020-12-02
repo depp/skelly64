@@ -1,6 +1,8 @@
 #include "tools/modelconvert/mesh.hpp"
 
 #include "tools/modelconvert/config.hpp"
+#include "tools/util/hash.hpp"
+#include "tools/util/pack.hpp"
 #include "tools/util/quote.hpp"
 
 #include <assimp/scene.h>
@@ -97,6 +99,14 @@ struct Node {
     aiMatrix4x4 current_global;
 };
 
+struct FrameData {
+    // Hash of position data.
+    uint32_t hash;
+
+    // Position data.
+    std::vector<std::array<int16_t, 3>> position;
+};
+
 // AssImp mesh importer.
 class Importer {
 public:
@@ -123,8 +133,12 @@ private:
     // Add an animation to the mesh.
     void AddAnimation(int index, const aiAnimation *animation);
 
-    // Create a frame of animation.
-    AnimationFrame CreateFrame(const aiAnimation *animation, double time);
+    // Create a frame of animation. Returns the index of the new frame.
+    int CreateFrame(const aiAnimation *animation, double time);
+
+    // Add a frame of animation, given the position data. Returns the index of
+    // the new frame.
+    int AddFrame(std::vector<std::array<int16_t, 3>> &&position);
 
     const Config &m_cfg;
     std::FILE *m_stats;
@@ -150,6 +164,9 @@ private:
 
     // Animations.
     std::vector<std::unique_ptr<Animation>> m_animation;
+
+    // Frame data.
+    std::vector<FrameData> m_frame;
 };
 
 void Importer::Import(const aiScene *scene) {
@@ -162,8 +179,15 @@ void Importer::Import(const aiScene *scene) {
     //     m_transform.d1, m_transform.d2, m_transform.d3, m_transform.d4);
     AddNodes(scene->mRootNode, -1);
     AddMeshes(scene, scene->mRootNode, aiMatrix4x4());
-    if (m_rawposition.empty()) {
+    if (m_rawposition.empty() || m_vertexpos.empty()) {
         throw MeshError("empty mesh");
+    }
+    {
+        int frame = AddFrame(std::move(m_vertexpos));
+        if (frame != 0) {
+            // Assertion.
+            throw std::runtime_error("bind pose is not frame 0");
+        }
     }
     // for (const auto vec : m_vertexpos) {
     //     fmt::print(stderr, "vec = {} {} {}\n", vec[0], vec[1], vec[2]);
@@ -207,16 +231,22 @@ void Importer::Import(const aiScene *scene) {
 Mesh Importer::IntoMesh() {
     Mesh mesh;
     mesh.vertex = std::move(m_vertex);
-    mesh.vertexpos = std::move(m_vertexpos);
     mesh.triangle = std::move(m_triangle);
     mesh.animation = std::move(m_animation);
+    if (m_frame.empty()) {
+        throw std::runtime_error("no frames");
+    }
+    mesh.animation_frame.reserve(m_frame.size());
+    for (FrameData &frame : m_frame) {
+        mesh.animation_frame.emplace_back(std::move(frame.position));
+    }
     return mesh;
 }
 
 void Importer::AddNodes(const aiNode *node, int parent) {
     size_t n = m_node.size();
     if (n > std::numeric_limits<int>::max()) {
-        throw std::runtime_error("too many nodes");
+        throw MeshError("too many nodes");
     }
     int index = n;
     m_node.emplace_back(parent, std::string(Str(node->mName)));
@@ -460,14 +490,19 @@ void Importer::AddAnimation(int index, const aiAnimation *animation) {
     std::unique_ptr<Animation> anim = std::make_unique<Animation>();
     anim->duration = duration;
     if (framecount <= 1) {
-        anim->frame.push_back(CreateFrame(animation, 0.0));
+        AnimationFrame frame{};
+        frame.data_index = CreateFrame(animation, 0.0);
+        anim->frame.push_back(frame);
     } else if (framecount > 100) {
         throw MeshError("too maniy frames in animation");
     } else {
         anim->frame.reserve(framecount);
         for (int i = 0; i < framecount; i++) {
             double time = i * (duration / (framecount - 1));
-            anim->frame.push_back(CreateFrame(animation, time));
+            AnimationFrame frame{};
+            frame.time = time;
+            frame.data_index = CreateFrame(animation, time);
+            anim->frame.push_back(frame);
         }
     }
     if (static_cast<size_t>(index) >= m_animation.size()) {
@@ -480,8 +515,7 @@ void Importer::AddAnimation(int index, const aiAnimation *animation) {
     slot = std::move(anim);
 }
 
-AnimationFrame Importer::CreateFrame(const aiAnimation *animation,
-                                     double time) {
+int Importer::CreateFrame(const aiAnimation *animation, double time) {
     int vertcount = m_vertex.size();
 
     // Reset local transforms.
@@ -544,11 +578,35 @@ AnimationFrame Importer::CreateFrame(const aiAnimation *animation,
         }
     }
 
-    AnimationFrame fr{};
-    fr.time = time;
-    QuantizeVectors(&fr.position, m_tempposition.data(), vertcount,
+    m_vertexpos.clear();
+    QuantizeVectors(&m_vertexpos, m_tempposition.data(), vertcount,
                     m_transform);
-    return fr;
+    return AddFrame(std::move(m_vertexpos));
+}
+
+int Importer::AddFrame(std::vector<std::array<int16_t, 3>> &&position) {
+    util::Murmur3 hash_state = util::Murmur3::Initial(0);
+    for (const std::array<int16_t, 3> &pos : position) {
+        hash_state.Update(util::Pack16x2(pos[0], pos[1]));
+        hash_state.Update(pos[2]);
+    }
+    uint32_t hash = hash_state.Hash();
+    auto start = m_frame.begin(), end = m_frame.end();
+    for (auto ptr = start; ptr != end; ++ptr) {
+        FrameData &frame = *ptr;
+        if (frame.hash == hash && frame.position == position) {
+            int index = ptr - start;
+            if (m_stats) {
+                fmt::print(m_stats, "Reusing frame {}\n", index);
+            }
+            return index;
+        }
+    }
+    int index = m_frame.size();
+    FrameData &frame = m_frame.emplace_back();
+    frame.hash = hash;
+    frame.position = std::move(position);
+    return index;
 }
 
 } // namespace
