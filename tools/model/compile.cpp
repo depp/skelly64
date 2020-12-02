@@ -325,8 +325,11 @@ private:
 
         // Transform vertexes.
         {
-            std::vector<Vtx> vdata(transform_verts.size());
-            int vstart = 0, vend = transform_verts.size();
+            const int vcount = transform_verts.size();
+            std::vector<Vtx> vdata(vcount);
+            int vstart = 0, vend = vcount;
+            int dl_off = m_dl_vertex.size();
+            m_dl_vertex.resize(dl_off + vcount, -1);
             for (const int vertex_id : transform_verts) {
                 const VState &v = m_vertex.at(vertex_id);
                 const GState &g = m_group.at(v.group_id);
@@ -337,6 +340,7 @@ private:
                     index = vstart++;
                 }
                 vdata.at(index) = v.vertex;
+                m_dl_vertex.at(dl_off + index) = vertex_id;
             }
             assert(vstart == vend);
             dl->Vertex(start, vdata);
@@ -390,18 +394,25 @@ private:
 
     // Total vertex count at end, including duplicates that were not merged.
     int m_total_vtx = 0;
+
+    // The indexes of vertexes in the emitted display list.
+    std::vector<int> m_dl_vertex;
 };
 
 } // namespace
 
-void CompileMesh(DisplayList *dl, const Mesh &mesh, const Config &cfg,
-                 std::FILE *stats) {
+Model CompileMesh(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
     if (stats) {
         fmt::print(stats, "Compiling model\n");
     }
     Compiler compiler{mesh, cfg, stats};
-    compiler.Emit(dl, stats);
-    dl->End();
+    DisplayList dl{VertexCacheSize};
+    compiler.Emit(&dl, stats);
+    dl.End();
+    Model model;
+    model.command = dl.command();
+    model.vertex = dl.vertex();
+    return model;
 }
 
 } // namespace gbi

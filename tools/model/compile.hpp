@@ -2,6 +2,8 @@
 
 #include <cstdio>
 
+#include "tools/modelconvert/model.hpp"
+
 namespace modelconvert {
 
 struct Config;
@@ -11,9 +13,8 @@ namespace gbi {
 
 class DisplayList;
 
-// Compile a mesh and append it to a display list.
-void CompileMesh(DisplayList *dl, const Mesh &mesh, const Config &cfg,
-                 std::FILE *stats);
+// Compile a mesh into a model usable by the engine.
+Model CompileMesh(const Mesh &mesh, const Config &cfg, std::FILE *stats);
 
 } // namespace gbi
 } // namespace modelconvert

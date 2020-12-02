@@ -9,6 +9,9 @@
 namespace modelconvert {
 namespace gbi {
 
+// Number of entries in the vertex cache.
+constexpr unsigned VertexCacheSize = 32;
+
 // Display list builder. Performs minor optimizations, such as combining
 // multiple triangles into SP1Triangle and SP2Triangle.
 class DisplayList {
@@ -17,6 +20,12 @@ public:
 
     // Read-only access to the vertex cache.
     const VertexCache &cache() const { return m_cache; }
+
+    // The list of commands.
+    const std::vector<Gfx> &command() const { return m_cmds; }
+
+    // The list of vertexes.
+    const std::vector<Vtx> &vertex() const { return m_vtx; }
 
     // Size of vertex cache.
     int vertex_cache_size() const { return m_cache.size(); }
@@ -35,9 +44,6 @@ public:
 
     // End display list.
     void End();
-
-    // Emit display list as model file.
-    std::vector<uint8_t> Emit() const;
 
 private:
     // Flush pending triangles with the given vertex.

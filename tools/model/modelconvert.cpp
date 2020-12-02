@@ -1,7 +1,7 @@
 #include "tools/modelconvert/compile.hpp"
 #include "tools/modelconvert/config.hpp"
-#include "tools/modelconvert/displaylist.hpp"
 #include "tools/modelconvert/mesh.hpp"
+#include "tools/modelconvert/model.hpp"
 #include "tools/util/expr.hpp"
 #include "tools/util/expr_flag.hpp"
 #include "tools/util/flag.hpp"
@@ -20,9 +20,6 @@
 
 namespace modelconvert {
 namespace {
-
-// Number of entries in the vertex cache.
-constexpr unsigned VertexCacheSize = 32;
 
 class AxesFlag : public flag::FlagBase {
     Axes *m_ptr;
@@ -206,10 +203,9 @@ void Main(int argc, char **argv) {
 
     Mesh mesh = Mesh::Import(cfg, stats, scene);
 
-    gbi::DisplayList dl{VertexCacheSize};
-    gbi::CompileMesh(&dl, mesh, cfg, stats);
+    gbi::Model model = gbi::CompileMesh(mesh, cfg, stats);
     if (!args.output.empty()) {
-        std::vector<uint8_t> data = dl.Emit();
+        std::vector<uint8_t> data = model.Emit(cfg);
         WriteFile(args.output, data);
     }
 }

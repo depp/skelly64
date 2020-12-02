@@ -16,6 +16,8 @@ cc_binary(
         "gbi.hpp",
         "mesh.cpp",
         "mesh.hpp",
+        "model.cpp",
+        "model.hpp",
         "modelconvert.cpp",
         "vertex.hpp",
         "vertexcache.cpp",
