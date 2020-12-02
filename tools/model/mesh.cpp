@@ -64,6 +64,7 @@ std::array<int16_t, 3> QuantizeVector(aiVector3D v) {
 void QuantizeVectors(std::vector<std::array<int16_t, 3>> *out,
                      const aiVector3D *vs, int vscount,
                      const aiMatrix4x4 &transform) {
+    out->reserve(out->size() + vscount);
     for (int i = 0; i < vscount; i++) {
         out->push_back(QuantizeVector(transform * vs[i]));
     }
@@ -89,7 +90,11 @@ struct Node {
 
     int parent;
     std::string name;
-    aiMatrix4x4 transform;
+    aiMatrix4x4 transform; // Node's transformation relative to parent.
+
+    // Temporary matrixes for evaluating animations.
+    aiMatrix4x4 current_local;
+    aiMatrix4x4 current_global;
 };
 
 // AssImp mesh importer.
@@ -116,7 +121,10 @@ private:
     void AddMesh(const aiMesh *mesh, const aiMatrix4x4 &transform);
 
     // Add an animation to the mesh.
-    void AddAnimation(const aiAnimation *animation);
+    void AddAnimation(int index, const aiAnimation *animation);
+
+    // Create a frame of animation.
+    AnimationFrame CreateFrame(const aiAnimation *animation, double time);
 
     const Config &m_cfg;
     std::FILE *m_stats;
@@ -125,7 +133,8 @@ private:
     aiMatrix4x4 m_transform;
 
     // Vertex data.
-    std::vector<aiVector3D> m_rawposition; // Untransformed.
+    std::vector<aiVector3D> m_rawposition;  // Untransformed.
+    std::vector<aiVector3D> m_tempposition; // Bones.
     std::vector<VertexAttr> m_vertex;
 
     // Triangles.
@@ -138,28 +147,31 @@ private:
 
     // Quantized vertex positions.
     std::vector<std::array<int16_t, 3>> m_vertexpos; // Transformed.
+
+    // Animations.
+    std::vector<std::unique_ptr<Animation>> m_animation;
 };
 
 void Importer::Import(const aiScene *scene) {
     m_transform = m_cfg.axes.ToMatrix() * m_cfg.scale;
-    fmt::print(
-        "MATRIX: {} {} {} {} | {} {} {} {} | {} {} {} {} | {} {} {} {}\n",
-        m_transform.a1, m_transform.a2, m_transform.a3, m_transform.a4,
-        m_transform.b1, m_transform.b2, m_transform.b3, m_transform.b4,
-        m_transform.c1, m_transform.c2, m_transform.c3, m_transform.c4,
-        m_transform.d1, m_transform.d2, m_transform.d3, m_transform.d4);
+    // fmt::print(
+    //     "MATRIX: {} {} {} {} | {} {} {} {} | {} {} {} {} | {} {} {} {}\n",
+    //     m_transform.a1, m_transform.a2, m_transform.a3, m_transform.a4,
+    //     m_transform.b1, m_transform.b2, m_transform.b3, m_transform.b4,
+    //     m_transform.c1, m_transform.c2, m_transform.c3, m_transform.c4,
+    //     m_transform.d1, m_transform.d2, m_transform.d3, m_transform.d4);
     AddNodes(scene->mRootNode, -1);
     AddMeshes(scene, scene->mRootNode, aiMatrix4x4());
     if (m_rawposition.empty()) {
         throw MeshError("empty mesh");
     }
-    for (const auto vec : m_vertexpos) {
-        fmt::print(stderr, "vec = {} {} {}\n", vec[0], vec[1], vec[2]);
-    }
+    // for (const auto vec : m_vertexpos) {
+    //     fmt::print(stderr, "vec = {} {} {}\n", vec[0], vec[1], vec[2]);
+    // }
     if (m_cfg.animate) {
-        aiAnimation **ap = scene->mAnimations;
-        if (scene->mNumAnimations >= 2) {
-            AddAnimation(ap[1]);
+        int animcount = scene->mNumAnimations;
+        for (int i = 0; i < animcount; i++) {
+            AddAnimation(i, scene->mAnimations[i]);
         }
     }
     if (m_stats) {
@@ -197,6 +209,7 @@ Mesh Importer::IntoMesh() {
     mesh.vertex = std::move(m_vertex);
     mesh.vertexpos = std::move(m_vertexpos);
     mesh.triangle = std::move(m_triangle);
+    mesh.animation = std::move(m_animation);
     return mesh;
 }
 
@@ -441,19 +454,43 @@ typename Key::elem_type ReadObject(double time, const Key *keys, unsigned count,
     return Interpolate(a.mValue, b.mValue, frac);
 }
 
-void Importer::AddAnimation(const aiAnimation *animation) {
-    std::string node_name;
-    const double time = animation->mDuration * 1.0;
-    int nodecount = m_node.size();
-    int vertcount = m_vertex.size();
-    std::vector<aiMatrix4x4> local_transform(nodecount);
-    for (size_t i = 0; i < local_transform.size(); i++) {
-        local_transform[i] = m_node[i].transform;
+void Importer::AddAnimation(int index, const aiAnimation *animation) {
+    const double duration = animation->mDuration;
+    int framecount = std::lrint(duration + 1.0);
+    std::unique_ptr<Animation> anim = std::make_unique<Animation>();
+    anim->duration = duration;
+    if (framecount <= 1) {
+        anim->frame.push_back(CreateFrame(animation, 0.0));
+    } else if (framecount > 100) {
+        throw MeshError("too maniy frames in animation");
+    } else {
+        anim->frame.reserve(framecount);
+        for (int i = 0; i < framecount; i++) {
+            double time = i * (duration / (framecount - 1));
+            anim->frame.push_back(CreateFrame(animation, time));
+        }
     }
-    std::vector<aiMatrix4x4> global_transform(nodecount);
-    std::vector<aiVector3D> vectors(vertcount);
+    if (static_cast<size_t>(index) >= m_animation.size()) {
+        m_animation.resize(index + 1);
+    }
+    std::unique_ptr<Animation> &slot = m_animation.at(index);
+    if (slot) {
+        throw MeshError("multiple animations in same slot");
+    }
+    slot = std::move(anim);
+}
 
-    // Update local transforms.
+AnimationFrame Importer::CreateFrame(const aiAnimation *animation,
+                                     double time) {
+    int vertcount = m_vertex.size();
+
+    // Reset local transforms.
+    for (Node &node : m_node) {
+        node.current_local = node.transform;
+    }
+
+    // Update local transforms from animation channels.
+    std::string node_name;
     for (aiNodeAnim **cp = animation->mChannels,
                     **ce = cp + animation->mNumChannels;
          cp != ce; cp++) {
@@ -471,7 +508,6 @@ void Importer::AddAnimation(const aiAnimation *animation) {
                 "multiple nodes match animation channel, animation={}, node={}",
                 util::Quote(Str(animation->mName)), util::Quote(node_name)));
         }
-        // Find key after the given point in time.
         const aiVector3D position =
             ReadObject(time, chan->mPositionKeys, chan->mNumPositionKeys,
                        aiVector3D(0.0f));
@@ -479,35 +515,40 @@ void Importer::AddAnimation(const aiAnimation *animation) {
             time, chan->mRotationKeys, chan->mNumRotationKeys, aiQuaternion());
         const aiVector3D scaling = ReadObject(
             time, chan->mScalingKeys, chan->mNumScalingKeys, aiVector3D(1.0f));
-        local_transform.at(node_index) =
+        m_node.at(node_index).current_local =
             aiMatrix4x4(scaling, rotation, position);
     }
 
     // Update global transforms.
-    for (int i = 0; i < nodecount; i++) {
-        const Node &nn = m_node.at(i);
-        aiMatrix4x4 &gmat = global_transform.at(i);
-        const aiMatrix4x4 &lmat = local_transform.at(i);
-        if (nn.parent == -1) {
-            gmat = lmat;
+    for (Node &node : m_node) {
+        if (node.parent == -1) {
+            node.current_global = node.current_local;
         } else {
-            const aiMatrix4x4 &parent = global_transform.at(nn.parent);
-            gmat = parent * lmat;
+            // Parent index is always < node index.
+            const aiMatrix4x4 &parent = m_node.at(node.parent).current_global;
+            node.current_global = parent * node.current_local;
         }
     }
 
     // Evaluate bones.
-    for (aiVector3D &v : vectors) {
+    m_tempposition.resize(vertcount);
+    for (aiVector3D &v : m_tempposition) {
         v = aiVector3D();
     }
     for (const Bone &bone : m_bone) {
-        aiMatrix4x4 mat = global_transform.at(bone.node) * bone.offset_matrix;
+        aiMatrix4x4 mat =
+            m_node.at(bone.node).current_global * bone.offset_matrix;
         for (const BoneVertex &v : bone.vertex) {
-            vectors.at(v.index) += (mat * m_rawposition.at(v.index)) * v.weight;
+            m_tempposition.at(v.index) +=
+                (mat * m_rawposition.at(v.index)) * v.weight;
         }
     }
 
-    // SetVertexPos(vectors);
+    AnimationFrame fr{};
+    fr.time = time;
+    QuantizeVectors(&fr.position, m_tempposition.data(), vertcount,
+                    m_transform);
+    return fr;
 }
 
 } // namespace

@@ -78,9 +78,16 @@ public:
         }
 
         m_vertex.resize(nvert);
+        const std::vector<std::array<int16_t, 3>> *vertexpos = &mesh.vertexpos;
+        if (cfg.animate) {
+            Animation *anim = mesh.animation.at(0).get();
+            if (anim != nullptr) {
+                vertexpos = &anim->frame.at(5).position;
+            }
+        }
         for (int i = 0; i < nvert; i++) {
             VState &v = m_vertex.at(i);
-            v.vertex.pos = mesh.vertexpos.at(i);
+            v.vertex.pos = vertexpos->at(i);
             const VertexAttr &vv = mesh.vertex.at(i);
             v.vertex.pad = 0;
             v.vertex.texcoord = vv.texcoord;
@@ -109,7 +116,7 @@ public:
         for (int i = 0; i < nvert; i++) {
             VOrder &v = vorder.at(i);
             v.index = i;
-            v.pos = mesh.vertexpos.at(i);
+            v.pos = vertexpos->at(i);
             const VertexAttr &d = mesh.vertex.at(i);
             v.normal = d.normal;
             v.same = false;

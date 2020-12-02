@@ -40,6 +40,25 @@ struct Triangle {
     std::array<int, 3> vertex;
 };
 
+// A frame in a mesh animation.
+struct AnimationFrame {
+    // Time at which the frame is displayed, in seconds, where 0 is the start of
+    // the animation.
+    float time;
+
+    // Vertex position data.
+    std::vector<std::array<int16_t, 3>> position;
+};
+
+// A mesh animation.
+struct Animation {
+    // Duration of animation, in seconds.
+    float duration;
+
+    // List of frames, sorted ascending by time.
+    std::vector<AnimationFrame> frame;
+};
+
 // A complete mesh.
 struct Mesh {
     // Vertex attributes, excluding position.
@@ -50,6 +69,9 @@ struct Mesh {
 
     // Triangles.
     std::vector<Triangle> triangle;
+
+    // Animations. Some may be null.
+    std::vector<std::unique_ptr<Animation>> animation;
 
     // Import a scene as a mesh.
     static Mesh Import(const Config &cfg, std::FILE *stats,
