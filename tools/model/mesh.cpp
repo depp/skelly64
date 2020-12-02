@@ -6,14 +6,15 @@
 #include <assimp/scene.h>
 #include <cassert>
 #include <fmt/core.h>
+#include <unordered_map>
 
 namespace modelconvert {
+
+namespace {
 
 std::string_view Str(const aiString &s) {
     return std::string_view(s.data, s.length);
 }
-
-namespace {
 
 std::array<float, 3> ImportVector(const aiVector3D &v) {
     return {{v.x, v.y, v.z}};
@@ -60,31 +61,113 @@ std::array<int16_t, 3> QuantizeVector(aiVector3D v) {
     return r;
 }
 
-} // namespace
+void QuantizeVectors(std::vector<std::array<int16_t, 3>> *out,
+                     const aiVector3D *vs, int vscount,
+                     const aiMatrix4x4 &transform) {
+    for (int i = 0; i < vscount; i++) {
+        out->push_back(QuantizeVector(transform * vs[i]));
+    }
+}
 
-Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
-    Mesh mesh;
-    aiMatrix4x4 scale;
-    aiMatrix4x4::Scaling(aiVector3D(cfg.scale), scale);
-    mesh.m_transform = cfg.axes.ToMatrix() * scale;
-    mesh.AddNodes(scene->mRootNode, -1);
-    mesh.AddMeshes(cfg, stats, scene, scene->mRootNode, aiMatrix4x4());
-    if (mesh.m_rawposition.empty()) {
+// A single vertex under the influence of a bone.
+struct BoneVertex {
+    int index;
+    float weight;
+};
+
+struct Bone {
+    int node;
+    std::string name;
+    std::vector<BoneVertex> vertex;
+    aiMatrix4x4 offset_matrix; // mesh space -> bone space
+};
+
+// Information about a node in the hierarchy.
+struct Node {
+    Node(int parent, std::string name)
+        : parent{parent}, name{std::move(name)} {}
+
+    int parent;
+    std::string name;
+    aiMatrix4x4 transform;
+};
+
+// AssImp mesh importer.
+class Importer {
+public:
+    Importer(const Config &cfg, std::FILE *stats)
+        : m_cfg{cfg}, m_stats{stats} {}
+
+    void Import(const aiScene *scene);
+
+    // Create the mesh. Destroys the importer.
+    Mesh IntoMesh();
+
+private:
+    // Add a node and all its children recursively, given the index of the
+    // parent.
+    void AddNodes(const aiNode *node, int parent);
+
+    // Add the meshes belonging to a node and its children.
+    void AddMeshes(const aiScene *scene, const aiNode *node,
+                   const aiMatrix4x4 &transform);
+
+    // Add a AssImp mesh.
+    void AddMesh(const aiMesh *mesh, const aiMatrix4x4 &transform);
+
+    // Add an animation to the mesh.
+    void AddAnimation(const aiAnimation *animation);
+
+    const Config &m_cfg;
+    std::FILE *m_stats;
+
+    // Model transformation.
+    aiMatrix4x4 m_transform;
+
+    // Vertex data.
+    std::vector<aiVector3D> m_rawposition; // Untransformed.
+    std::vector<VertexAttr> m_vertex;
+
+    // Triangles.
+    std::vector<Triangle> m_triangle;
+
+    // Bones and nodes.
+    std::unordered_map<std::string, int> m_node_names; // -1 = multiple.
+    std::vector<Bone> m_bone;
+    std::vector<Node> m_node;
+
+    // Quantized vertex positions.
+    std::vector<std::array<int16_t, 3>> m_vertexpos; // Transformed.
+};
+
+void Importer::Import(const aiScene *scene) {
+    m_transform = m_cfg.axes.ToMatrix() * m_cfg.scale;
+    fmt::print(
+        "MATRIX: {} {} {} {} | {} {} {} {} | {} {} {} {} | {} {} {} {}\n",
+        m_transform.a1, m_transform.a2, m_transform.a3, m_transform.a4,
+        m_transform.b1, m_transform.b2, m_transform.b3, m_transform.b4,
+        m_transform.c1, m_transform.c2, m_transform.c3, m_transform.c4,
+        m_transform.d1, m_transform.d2, m_transform.d3, m_transform.d4);
+    AddNodes(scene->mRootNode, -1);
+    AddMeshes(scene, scene->mRootNode, aiMatrix4x4());
+    if (m_rawposition.empty()) {
         throw MeshError("empty mesh");
     }
-    mesh.SetVertexPos(mesh.m_rawposition);
-    if (cfg.animate) {
+    for (const auto vec : m_vertexpos) {
+        fmt::print(stderr, "vec = {} {} {}\n", vec[0], vec[1], vec[2]);
+    }
+    if (m_cfg.animate) {
         aiAnimation **ap = scene->mAnimations;
         if (scene->mNumAnimations >= 2) {
-            mesh.AddAnimation(ap[1]);
+            AddAnimation(ap[1]);
         }
     }
-    if (stats) {
+    if (m_stats) {
         float min[3], max[3];
-        min[0] = max[0] = mesh.m_rawposition[0].x;
-        min[1] = max[1] = mesh.m_rawposition[0].y;
-        min[2] = max[2] = mesh.m_rawposition[0].z;
-        for (const aiVector3D v : mesh.m_rawposition) {
+        min[0] = max[0] = m_rawposition[0].x;
+        min[1] = max[1] = m_rawposition[0].y;
+        min[2] = max[2] = m_rawposition[0].z;
+        for (const aiVector3D v : m_rawposition) {
             min[0] = std::min(min[0], v.x);
             max[0] = std::max(max[0], v.x);
             min[1] = std::min(min[1], v.y);
@@ -92,31 +175,32 @@ Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
             min[2] = std::min(min[2], v.z);
             max[2] = std::max(max[2], v.z);
         }
-        fmt::print(stats, "\n========== BOUNDS ==========\n");
-        fmt::print(stats, "Bounding box: ({}, {}, {}) ({}, {}, {})\n", min[0],
+        fmt::print(m_stats, "\n========== Model Stats ==========\n");
+        fmt::print(m_stats, "Bounding box: ({}, {}, {}) ({}, {}, {})\n", min[0],
                    min[1], min[2], max[0], max[1], max[2]);
         float amax[3];
         for (int i = 0; i < 3; i++) {
             amax[i] = std::max(-min[i], max[i]);
         }
-        fmt::print(stats, "Absolute bounds: ({}, {}, {})\n", amax[0], amax[1],
+        fmt::print(m_stats, "Absolute bounds: ({}, {}, {})\n", amax[0], amax[1],
                    amax[2]);
-        fmt::print(stats, "\n");
+        fmt::print(m_stats, "Vertexes: {}\n", m_vertex.size());
+        fmt::print(m_stats, "Triangles: {}\n", m_triangle.size());
+        fmt::print(m_stats, "Nodes: {}\n", m_node.size());
+        fmt::print(m_stats, "Bones: {}\n", m_bone.size());
+        fmt::print(m_stats, "\n");
     }
+}
+
+Mesh Importer::IntoMesh() {
+    Mesh mesh;
+    mesh.vertex = std::move(m_vertex);
+    mesh.vertexpos = std::move(m_vertexpos);
+    mesh.triangle = std::move(m_triangle);
     return mesh;
 }
 
-void Mesh::Dump(std::FILE *stats) const {
-    assert(stats != nullptr);
-    fmt::print(stats,
-               "Imported model:\n"
-               "    Vertexes: {}\n    Triangles: {}\n"
-               "    Nodes: {}\n    Bones: {}\n",
-               m_vertex.size(), m_triangle.size(), m_node.size(),
-               m_bone.size());
-}
-
-void Mesh::AddNodes(const aiNode *node, int parent) {
+void Importer::AddNodes(const aiNode *node, int parent) {
     size_t n = m_node.size();
     if (n > std::numeric_limits<int>::max()) {
         throw std::runtime_error("too many nodes");
@@ -137,8 +221,8 @@ void Mesh::AddNodes(const aiNode *node, int parent) {
     }
 }
 
-void Mesh::AddMeshes(const Config &cfg, std::FILE *stats, const aiScene *scene,
-                     const aiNode *node, const aiMatrix4x4 &transform) {
+void Importer::AddMeshes(const aiScene *scene, const aiNode *node,
+                         const aiMatrix4x4 &transform) {
     const aiMatrix4x4 node_transform = transform * node->mTransformation;
     for (const unsigned *mp = node->mMeshes, *me = mp + node->mNumMeshes;
          mp != me; mp++) {
@@ -146,16 +230,15 @@ void Mesh::AddMeshes(const Config &cfg, std::FILE *stats, const aiScene *scene,
         if (mesh_id >= scene->mNumMeshes) {
             throw MeshError("bad mesh reference in scene");
         }
-        AddMesh(cfg, stats, scene->mMeshes[mesh_id], node_transform);
+        AddMesh(scene->mMeshes[mesh_id], node_transform);
     }
     for (aiNode **cp = node->mChildren, **ce = cp + node->mNumChildren;
          cp != ce; cp++) {
-        AddMeshes(cfg, stats, scene, *cp, node_transform);
+        AddMeshes(scene, *cp, node_transform);
     }
 }
 
-void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
-                   const aiMatrix4x4 &transform) {
+void Importer::AddMesh(const aiMesh *mesh, const aiMatrix4x4 &transform) {
     if (mesh->mNumVertices > std::numeric_limits<int>::max()) {
         throw std::runtime_error("too many vertexes");
     }
@@ -170,26 +253,26 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
 
     // Get vertex positions.
     {
-        (void)&transform;
         const aiVector3D *posarr = mesh->mVertices;
         for (int i = 0; i < nvert; i++) {
             m_rawposition.at(offset + i) = posarr[i];
         }
+        QuantizeVectors(&m_vertexpos, posarr, nvert, m_transform * transform);
     }
 
     // Get texture coordinates.
-    if (cfg.use_texcoords) {
+    if (m_cfg.use_texcoords) {
         const aiVector3D *texcoordarr = mesh->mTextureCoords[0];
         if (texcoordarr == nullptr) {
-            if (stats != nullptr) {
-                fmt::print(stats, "No texture coordinates\n");
+            if (m_stats != nullptr) {
+                fmt::print(m_stats, "No texture coordinates\n");
             }
             goto done_texcoords;
         }
-        if (cfg.texcoord_bits < 0 || cfg.texcoord_bits >= 32) {
+        if (m_cfg.texcoord_bits < 0 || m_cfg.texcoord_bits >= 32) {
             throw std::range_error("texcoord_bits out of range");
         }
-        const float scale = 1 << cfg.texcoord_bits;
+        const float scale = 1 << m_cfg.texcoord_bits;
         for (int i = 0; i < nvert; i++) {
             std::array<float, 3> ftexcoord = ImportVector(texcoordarr[i]);
             ftexcoord[1] = 1.0f - ftexcoord[1];
@@ -214,11 +297,11 @@ void Mesh::AddMesh(const Config &cfg, std::FILE *stats, const aiMesh *mesh,
 done_texcoords:
 
     // Get vertex colors.
-    if (cfg.use_vertex_colors) {
+    if (m_cfg.use_vertex_colors) {
         const aiColor4D *colorarr = mesh->mColors[0];
         if (colorarr == nullptr) {
-            if (stats != nullptr) {
-                fmt::print(stats, "No colors\n");
+            if (m_stats != nullptr) {
+                fmt::print(m_stats, "No colors\n");
             }
             goto done_colors;
         }
@@ -229,17 +312,17 @@ done_texcoords:
 done_colors:
 
     // Get vertex normals.
-    if (cfg.use_normals) {
+    if (m_cfg.use_normals) {
         const aiVector3D *normarr = mesh->mNormals;
         if (normarr == nullptr) {
-            if (stats != nullptr) {
-                fmt::print(stats, "No normals\n");
+            if (m_stats != nullptr) {
+                fmt::print(m_stats, "No normals\n");
             }
             goto done_normals;
         }
         for (int i = 0; i < nvert; i++) {
             std::array<float, 3> fnorm = ImportVector(normarr[i]);
-            fnorm = cfg.axes.Apply(fnorm);
+            fnorm = m_cfg.axes.Apply(fnorm);
             std::array<int8_t, 3> inorm;
             for (int j = 0; j < 3; j++) {
                 // 11.7.2 Normal Vector Normalization: limit to 127, but Q&A 3D
@@ -286,7 +369,7 @@ done_normals:;
         }
     }
 
-    if (cfg.animate) {
+    if (m_cfg.animate) {
         for (aiBone **bp = mesh->mBones, **be = bp + mesh->mNumBones; bp != be;
              bp++) {
             const aiBone *bone = *bp;
@@ -317,15 +400,6 @@ done_normals:;
         }
     }
 }
-
-void Mesh::SetVertexPos(const std::vector<aiVector3D> &pos) {
-    m_vertexpos.resize(m_vertex.size());
-    for (size_t i = 0; i < m_vertex.size(); i++) {
-        m_vertexpos.at(i) = QuantizeVector(m_transform * pos.at(i));
-    }
-}
-
-namespace {
 
 // Interpolate between vectors.
 aiVector3D Interpolate(const aiVector3D &a, const aiVector3D &b, double frac) {
@@ -367,9 +441,7 @@ typename Key::elem_type ReadObject(double time, const Key *keys, unsigned count,
     return Interpolate(a.mValue, b.mValue, frac);
 }
 
-} // namespace
-
-void Mesh::AddAnimation(const aiAnimation *animation) {
+void Importer::AddAnimation(const aiAnimation *animation) {
     std::string node_name;
     const double time = animation->mDuration * 1.0;
     int nodecount = m_node.size();
@@ -435,7 +507,15 @@ void Mesh::AddAnimation(const aiAnimation *animation) {
         }
     }
 
-    SetVertexPos(vectors);
+    // SetVertexPos(vectors);
+}
+
+} // namespace
+
+Mesh Mesh::Import(const Config &cfg, std::FILE *stats, const aiScene *scene) {
+    Importer imp{cfg, stats};
+    imp.Import(scene);
+    return imp.IntoMesh();
 }
 
 } // namespace modelconvert

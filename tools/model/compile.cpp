@@ -69,13 +69,10 @@ void Sort3(std::array<int, 3> &arr) {
 class Compiler {
 public:
     Compiler(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
-        const std::vector<VertexAttr> &vdata = mesh.vertex_data();
-        const std::vector<std::array<int16_t, 3>> &vposdata =
-            mesh.position_data();
-        if (vdata.size() > std::numeric_limits<int>::max()) {
+        if (mesh.vertex.size() > std::numeric_limits<int>::max()) {
             throw std::runtime_error("too many vertexes");
         }
-        int nvert = vdata.size();
+        int nvert = mesh.vertex.size();
         if (nvert == 0) {
             return;
         }
@@ -83,8 +80,8 @@ public:
         m_vertex.resize(nvert);
         for (int i = 0; i < nvert; i++) {
             VState &v = m_vertex.at(i);
-            v.vertex.pos = vposdata.at(i);
-            const VertexAttr &vv = vdata.at(i);
+            v.vertex.pos = mesh.vertexpos.at(i);
+            const VertexAttr &vv = mesh.vertex.at(i);
             v.vertex.pad = 0;
             v.vertex.texcoord = vv.texcoord;
             if (cfg.use_vertex_colors) {
@@ -100,7 +97,7 @@ public:
             v.tri_count = 0;
             v.group_id = -1;
         }
-        m_triangle = mesh.triangle_data();
+        m_triangle = mesh.triangle;
         for (const Triangle &tri : m_triangle) {
             for (const int idx : tri.vertex) {
                 m_vertex.at(idx).tri_count++;
@@ -112,8 +109,8 @@ public:
         for (int i = 0; i < nvert; i++) {
             VOrder &v = vorder.at(i);
             v.index = i;
-            v.pos = vposdata.at(i);
-            const VertexAttr &d = vdata.at(i);
+            v.pos = mesh.vertexpos.at(i);
+            const VertexAttr &d = mesh.vertex.at(i);
             v.normal = d.normal;
             v.same = false;
         }

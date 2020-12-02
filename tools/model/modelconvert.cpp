@@ -144,29 +144,6 @@ Args ParseArgs(int argc, char **argv) {
     return args;
 }
 
-const char spaces[81] =
-    "                                        "
-    "                                        ";
-
-void Indent(std::FILE *fp, int n) {
-    while (n > 80) {
-        std::fwrite(spaces, 1, 80, fp);
-    }
-    if (n > 0) {
-        std::fwrite(spaces, 1, n, fp);
-    }
-}
-
-void VisitNode(std::FILE *stats, aiNode *node, int indent = 2) {
-    Indent(stats, indent);
-    fmt::print(stats, "{} meshes={}\n", util::Quote(Str(node->mName)),
-               node->mNumMeshes);
-    for (aiNode **ptr = node->mChildren, **end = ptr + node->mNumChildren;
-         ptr != end; ptr++) {
-        VisitNode(stats, *ptr, indent + 2);
-    }
-}
-
 void WriteFile(const std::string &out, const std::vector<uint8_t> &data) {
     FILE *fp = std::fopen(out.c_str(), "wb");
     if (fp == nullptr) {
@@ -226,15 +203,8 @@ void Main(int argc, char **argv) {
                    util::Quote(args.model), importer.GetErrorString());
         std::exit(1);
     }
-    if (stats) {
-        fmt::print(stats, "Nodes:\n");
-        VisitNode(stats, scene->mRootNode);
-    }
 
     Mesh mesh = Mesh::Import(cfg, stats, scene);
-    if (stats != nullptr) {
-        mesh.Dump(stats);
-    }
 
     gbi::DisplayList dl{VertexCacheSize};
     gbi::CompileMesh(&dl, mesh, cfg, stats);

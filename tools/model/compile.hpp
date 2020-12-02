@@ -5,7 +5,7 @@
 namespace modelconvert {
 
 struct Config;
-class Mesh;
+struct Mesh;
 
 namespace gbi {
 
