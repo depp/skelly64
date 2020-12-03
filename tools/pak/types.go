@@ -23,9 +23,9 @@ type typeinfo struct {
 
 var types = [...]typeinfo{
 	typeData:    {"data", 1},
-	typeTrack:   {"track", 2},
 	typeModel:   {"model", 1},
 	typeTexture: {"texture", 1},
+	typeTrack:   {"track", 2},
 }
 
 func parseType(s string) (t datatype, err error) {
