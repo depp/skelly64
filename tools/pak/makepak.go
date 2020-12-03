@@ -107,10 +107,7 @@ func readManifest(filename string) (*manifest, error) {
 			return nil, fmt.Errorf("%s:%d: %w", filename, lineno, err)
 		}
 		if e != nil {
-			sc := typeSlotCount[e.dtype]
-			if sc < 1 {
-				panic("bad dtype")
-			}
+			sc := e.dtype.slotCount()
 			e.Index = size
 			entries = append(entries, e)
 			size += sc
