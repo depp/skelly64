@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstdio>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>

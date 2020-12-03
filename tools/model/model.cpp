@@ -4,6 +4,7 @@
 #include "tools/util/bswap.hpp"
 
 #include <cstring>
+#include <stdexcept>
 #include <string_view>
 
 namespace modelconvert {
