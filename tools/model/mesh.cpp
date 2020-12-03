@@ -171,12 +171,6 @@ private:
 
 void Importer::Import(const aiScene *scene) {
     m_transform = m_cfg.axes.ToMatrix() * m_cfg.scale;
-    // fmt::print(
-    //     "MATRIX: {} {} {} {} | {} {} {} {} | {} {} {} {} | {} {} {} {}\n",
-    //     m_transform.a1, m_transform.a2, m_transform.a3, m_transform.a4,
-    //     m_transform.b1, m_transform.b2, m_transform.b3, m_transform.b4,
-    //     m_transform.c1, m_transform.c2, m_transform.c3, m_transform.c4,
-    //     m_transform.d1, m_transform.d2, m_transform.d3, m_transform.d4);
     AddNodes(scene->mRootNode, -1);
     AddMeshes(scene, scene->mRootNode, aiMatrix4x4());
     if (m_rawposition.empty() || m_vertexpos.empty()) {
@@ -189,9 +183,6 @@ void Importer::Import(const aiScene *scene) {
             throw std::runtime_error("bind pose is not frame 0");
         }
     }
-    // for (const auto vec : m_vertexpos) {
-    //     fmt::print(stderr, "vec = {} {} {}\n", vec[0], vec[1], vec[2]);
-    // }
     if (m_cfg.animate) {
         int animcount = scene->mNumAnimations;
         for (int i = 0; i < animcount; i++) {
