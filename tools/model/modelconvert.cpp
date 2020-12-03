@@ -190,6 +190,7 @@ void Main(int argc, char **argv) {
         fmt::print(stats, "    Scale: {}\n", cfg.scale);
         fmt::print(stats, "    Axes: {}\n", cfg.axes.ToString());
         fmt::print(stats, "    Animate: {}\n", cfg.animate);
+        fmt::print(stats, "\n");
     }
 
     // Import mesh.

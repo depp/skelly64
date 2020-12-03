@@ -107,6 +107,43 @@ struct FrameData {
     std::vector<std::array<int16_t, 3>> position;
 };
 
+// Bounding box.
+class Bounds {
+public:
+    Bounds() : m_min{1.0f, 1.0f, 1.0f}, m_max{-1.0, -1.0f, -1.0f} {}
+
+    void Add(const aiVector3D *vs, unsigned vscount,
+             const aiMatrix4x4 &transform) {
+        if (vscount == 0) {
+            return;
+        }
+        if (m_min[0] > m_max[0]) {
+            aiVector3D v = transform * vs[0];
+            m_min[0] = m_max[0] = v.x;
+            m_min[1] = m_max[1] = v.y;
+            m_min[2] = m_max[2] = v.z;
+        }
+        for (unsigned i = 0; i < vscount; i++) {
+            aiVector3D v = transform * vs[i];
+            m_min[0] = std::min(m_min[0], v.x);
+            m_min[1] = std::min(m_min[1], v.y);
+            m_min[2] = std::min(m_min[2], v.z);
+            m_max[0] = std::max(m_max[0], v.x);
+            m_max[1] = std::max(m_max[1], v.y);
+            m_max[2] = std::max(m_max[2], v.z);
+        }
+    }
+
+    std::string ToString() const {
+        return fmt::format("({}, {}, {}) ({}, {}, {})", m_min[0], m_min[1],
+                           m_min[2], m_max[0], m_max[1], m_max[2]);
+    }
+
+private:
+    std::array<float, 3> m_min;
+    std::array<float, 3> m_max;
+};
+
 // AssImp mesh importer.
 class Importer {
 public:
@@ -119,6 +156,10 @@ public:
     Mesh IntoMesh();
 
 private:
+    // Get the model bounds.
+    void GetBounds(Bounds *bounds, const aiScene *scene, const aiNode *node,
+                   const aiMatrix4x4 &transform);
+
     // Add a node and all its children recursively, given the index of the
     // parent.
     void AddNodes(const aiNode *node, int parent);
@@ -170,7 +211,13 @@ private:
 };
 
 void Importer::Import(const aiScene *scene) {
-    m_transform = m_cfg.axes.ToMatrix() * m_cfg.scale;
+    aiMatrix4x4 axes = m_cfg.axes.ToMatrix();
+    if (m_stats) {
+        Bounds bounds;
+        GetBounds(&bounds, scene, scene->mRootNode, axes);
+        fmt::print(m_stats, "Model bounds: {}\n", bounds.ToString());
+    }
+    m_transform = axes * m_cfg.scale;
     AddNodes(scene->mRootNode, -1);
     AddMeshes(scene, scene->mRootNode, aiMatrix4x4());
     if (m_rawposition.empty() || m_vertexpos.empty()) {
@@ -190,27 +237,7 @@ void Importer::Import(const aiScene *scene) {
         }
     }
     if (m_stats) {
-        float min[3], max[3];
-        min[0] = max[0] = m_rawposition[0].x;
-        min[1] = max[1] = m_rawposition[0].y;
-        min[2] = max[2] = m_rawposition[0].z;
-        for (const aiVector3D v : m_rawposition) {
-            min[0] = std::min(min[0], v.x);
-            max[0] = std::max(max[0], v.x);
-            min[1] = std::min(min[1], v.y);
-            max[1] = std::max(max[1], v.y);
-            min[2] = std::min(min[2], v.z);
-            max[2] = std::max(max[2], v.z);
-        }
         fmt::print(m_stats, "\n========== Model Stats ==========\n");
-        fmt::print(m_stats, "Bounding box: ({}, {}, {}) ({}, {}, {})\n", min[0],
-                   min[1], min[2], max[0], max[1], max[2]);
-        float amax[3];
-        for (int i = 0; i < 3; i++) {
-            amax[i] = std::max(-min[i], max[i]);
-        }
-        fmt::print(m_stats, "Absolute bounds: ({}, {}, {})\n", amax[0], amax[1],
-                   amax[2]);
         fmt::print(m_stats, "Vertexes: {}\n", m_vertex.size());
         fmt::print(m_stats, "Triangles: {}\n", m_triangle.size());
         fmt::print(m_stats, "Nodes: {}\n", m_node.size());
@@ -232,6 +259,21 @@ Mesh Importer::IntoMesh() {
         mesh.animation_frame.emplace_back(std::move(frame.position));
     }
     return mesh;
+}
+
+void Importer::GetBounds(Bounds *bounds, const aiScene *scene,
+                         const aiNode *node,
+                         const aiMatrix4x4 &parent_transform) {
+    aiMatrix4x4 transform = parent_transform * node->mTransformation;
+    for (const unsigned *mp = node->mMeshes, *me = mp + node->mNumMeshes;
+         mp != me; mp++) {
+        const aiMesh *mesh = scene->mMeshes[*mp];
+        bounds->Add(mesh->mVertices, mesh->mNumVertices, transform);
+    }
+    for (aiNode **np = node->mChildren, **ne = np + node->mNumChildren;
+         np != ne; np++) {
+        GetBounds(bounds, scene, *np, transform);
+    }
 }
 
 void Importer::AddNodes(const aiNode *node, int parent) {
