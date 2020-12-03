@@ -41,7 +41,7 @@ void DisplayList::Triangle(std::array<int, 3> tri) {
 
 void DisplayList::Vertex(int offset, const std::vector<Vtx> &vertexes) {
     int start = offset, end = offset + vertexes.size();
-    if (!(start <= 0 && start <= end && end <= m_cache.size())) {
+    if (!(0 <= start && start <= end && end <= m_cache.size())) {
         throw std::range_error("DisplayList::Vertex: bad range");
     }
     if (start == end) {
