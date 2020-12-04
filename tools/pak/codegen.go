@@ -15,6 +15,11 @@ const tmplType = `#pragma once
 {{- range .Entries}}
 #define {{.Ident}} (({{$.Type}}){{"{"}}{{.Index}}{{"}"}})
 {{- end}}
+enum {
+{{- range .Entries}}
+    ID_{{.Ident}} = {{.Index}},
+{{- end}}
+};
 `
 
 const tmplPak = `#pragma once
