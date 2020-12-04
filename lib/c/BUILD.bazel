@@ -39,12 +39,7 @@ cc_library(
             "console_n64.c",
             "fatal_n64.c",
             "mat4_n64.c",
-            "memcmp.c",
-            "memcpy.c",
-            "memmove.c",
             "memory_n64.c",
-            "memset.c",
-            "strlen.c",
             "thread.c",
         ],
         "//conditions:default": [
