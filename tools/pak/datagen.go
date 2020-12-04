@@ -46,13 +46,21 @@ func parseData(objects [][]byte, dtype datatype, data []byte) error {
 		objects[1] = tr.Data
 		return nil
 	case typeModel:
-		if len(objects) != 1 {
+		if len(objects) != 2 {
 			panic("wrong object length")
 		}
 		if err := checkMagic(data, "Model", 16); err != nil {
 			return err
 		}
-		objects[0] = data[16:]
+		if len(data) < 32 {
+			return fmt.Errorf("model too small: %d bytes", len(data))
+		}
+		var hdr [4]uint32
+		for i := 0; i < 4; i++ {
+			hdr[i] = binary.BigEndian.Uint32(data[16+i*4 : 16+i*4+4])
+		}
+		objects[0] = data[hdr[0] : hdr[0]+hdr[1]]
+		objects[1] = data[hdr[2] : hdr[2]+hdr[3]]
 		return nil
 	case typeTexture:
 		if len(objects) != 1 {

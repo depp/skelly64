@@ -19,17 +19,36 @@ size_t Align(size_t x) {
     return (x + 15) & ~static_cast<size_t>(15);
 }
 
-struct FHeader {
-    static constexpr size_t Size = 12;
+struct DataRef {
+    uint32_t offset;
+    uint32_t size;
 
+    void Swap() {
+        offset = BSwap32(offset);
+        size = BSwap32(size);
+    }
+};
+
+struct FHeader {
+    static constexpr size_t Size = 32;
+
+    // File format header. Parsed by asset packer.
+    DataRef data[2];
+
+    // Asset starts here.
     uint32_t vertex_offset;
     uint32_t dl_offset;
     uint32_t animation_count;
+    uint32_t frame_size;
 
     void Swap() {
+        for (DataRef &d : data) {
+            d.Swap();
+        }
         vertex_offset = BSwap32(vertex_offset);
         dl_offset = BSwap32(dl_offset);
         animation_count = BSwap32(animation_count);
+        frame_size = BSwap32(frame_size);
     }
 };
 
@@ -93,6 +112,7 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
     const size_t magiclen = 16;
 
     const size_t headerpos = Align(magiclen);
+    const size_t base = headerpos + 16;
     const size_t headerlen = FHeader::Size;
     size_t animpos = headerpos + headerlen;
     const size_t animlen = FAnimation::Size * animation.size();
@@ -106,9 +126,9 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
     const size_t fdatapos = Align(vertexpos + vertexlen);
     const size_t fdatalen = framedata_size * frame.size();
 
-    const size_t size = Align(fdatapos + fdatalen);
+    const size_t endpos = Align(fdatapos + fdatalen);
 
-    std::vector<uint8_t> data(size, 0);
+    std::vector<uint8_t> data(endpos, 0);
 
     // Emit magic.
     {
@@ -119,9 +139,14 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
     // Emit header.
     {
         FHeader h{};
-        h.vertex_offset = vertexpos - headerpos;
-        h.dl_offset = dlpos - headerpos;
+        h.data[0].offset = base;
+        h.data[0].size = fdatapos - base;
+        h.data[1].offset = fdatapos;
+        h.data[1].size = endpos - fdatapos;
+        h.vertex_offset = vertexpos - base;
+        h.dl_offset = dlpos - base;
         h.animation_count = animation.size();
+        h.frame_size = framedata_size;
         WriteData(&data, headerpos, h);
     }
 
@@ -131,7 +156,7 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
             FAnimation a{};
             a.duration = util::PutFloat32(anim.duration);
             a.frame_count = anim.frame.size();
-            a.frame_offset = framepos - headerpos;
+            a.frame_offset = framepos - base;
             WriteData(&data, animpos, a);
             animpos += a.Size;
         }
@@ -143,8 +168,7 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
                                                         : anim.duration;
             float dt = next_time - frame.time;
             f.inv_dt = util::PutFloat32(dt < 1.0e-3f ? 0.0f : 1.0f / dt);
-            f.vertex_offset =
-                fdatapos + framedata_size * frame.index - headerpos;
+            f.vertex_offset = framedata_size * frame.index;
             WriteData(&data, framepos, f);
             framepos += f.Size;
         }

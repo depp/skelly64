@@ -23,7 +23,7 @@ type typeinfo struct {
 
 var types = [...]typeinfo{
 	typeData:    {"data", 1},
-	typeModel:   {"model", 1},
+	typeModel:   {"model", 2},
 	typeTexture: {"texture", 1},
 	typeTrack:   {"track", 2},
 }
