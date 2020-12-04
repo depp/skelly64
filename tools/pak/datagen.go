@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"thornmarked/tools/audio"
 )
@@ -92,7 +94,55 @@ func (sec *section) readData(objects [][]byte) error {
 	return nil
 }
 
-func (mn *manifest) writeData(filename string) error {
+func (mn *manifest) writeStats(filename string, odata [][]byte, offsets []uint32, size int) error {
+	fp, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer fp.Close()
+	w := bufio.NewWriter(fp)
+	if _, err := fmt.Fprint(w, "Sections:\n"); err != nil {
+		return err
+	}
+	for _, sec := range mn.Sections {
+		if _, err := fmt.Fprintf(w, "  %s:\n", sec.dtype.name()); err != nil {
+			return err
+		}
+		n := sec.dtype.slotCount()
+		sizes := make([]int, n)
+		for i := range sec.Entries {
+			off := sec.Start - 1 + i*n
+			edata := odata[off : off+n : off+n]
+			for j, d := range edata {
+				if len(d) > sizes[j] {
+					sizes[j] = len(d)
+				}
+			}
+		}
+		if _, err := fmt.Fprintf(w, "    Max size: %d\n", sizes); err != nil {
+			return err
+		}
+		switch sec.dtype {
+		case typeModel:
+			var maxfsize uint32
+			for i := range sec.Entries {
+				fsize := binary.BigEndian.Uint32(odata[sec.Start-1+i*n][12:16])
+				if fsize > maxfsize {
+					maxfsize = fsize
+				}
+			}
+			if _, err := fmt.Fprintf(w, "    Max frame size: %d\n", maxfsize); err != nil {
+				return err
+			}
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return fp.Close()
+}
+
+func (mn *manifest) writeData(filename, statsfile string) error {
 	// Get object data for all assets.
 	odata := make([][]byte, mn.Size)
 	for _, sec := range mn.Sections {
@@ -117,6 +167,13 @@ func (mn *manifest) writeData(filename string) error {
 		}
 		offsets[i] = uint32(pos)
 		pos += len(data)
+	}
+
+	// Write stats.
+	if statsfile != "" {
+		if err := mn.writeStats(statsfile, odata, offsets, pos); err != nil {
+			return fmt.Errorf("could not write stats: %v", err)
+		}
 	}
 
 	// Write objects to buffer.

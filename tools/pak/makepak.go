@@ -187,6 +187,7 @@ func mainE() error {
 	flag.Var(&stringArrayValue{value: &dirs}, "dir", "search for files in")
 	manifestFlag := flag.String("manifest", "", "input manifest file")
 	dataFlag := flag.String("out-data", "", "output data file")
+	dataStatsFlag := flag.String("out-data-stats", "", "output data stats")
 	codeDirFlag := flag.String("out-code-dir", "", "output directory for code")
 	codePrefixFlag := flag.String("out-code-prefix", "", "prefix for output code filenames")
 	flag.Parse()
@@ -202,6 +203,7 @@ func mainE() error {
 	}
 	inManifest := getpath.GetPath(*manifestFlag)
 	outData := getpath.GetPath(*dataFlag)
+	outDataStats := getpath.GetPath(*dataStatsFlag)
 	outCode := getpath.GetPath(*codeDirFlag)
 	if inManifest == "" {
 		return errors.New("missing required flag -manifest")
@@ -220,7 +222,7 @@ func mainE() error {
 		if err := mn.resolveInputs(dirs); err != nil {
 			return err
 		}
-		if err := mn.writeData(outData); err != nil {
+		if err := mn.writeData(outData, outDataStats); err != nil {
 			return err
 		}
 	}
