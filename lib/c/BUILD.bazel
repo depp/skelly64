@@ -36,22 +36,7 @@ cc_library(
         "quat.c",
         "vec2.c",
         "vec3.c",
-    ] + select({
-        "//n64:os": [
-            "n64/console.c",
-            "n64/fatal.c",
-            "n64/mat4.c",
-            "n64/memory.c",
-            "n64/os.c",
-            "n64/stack_boot.s",
-            "n64/stack_idle.s",
-            "n64/start.s",
-            "n64/thread.c",
-        ],
-        "//conditions:default": [
-            "fatal_pc.c",
-        ],
-    }),
+    ],
     hdrs = [
         "base.h",
         "console.h",
@@ -63,26 +48,53 @@ cc_library(
         "vec2.h",
         "vec3.h",
         "vectypes.h",
-    ] + select({
-        "//n64:os": [
-            "n64/console.h",
-            "n64/mat4.h",
-            "n64/os.h",
-            "n64/system.h",
-        ],
-        "//conditions:default": [
-            "system_pc.h",
-        ],
-    }),
+    ],
     copts = COPTS,
-    defines = ["F3DEX_GBI_2"],
     deps = [
         ":defs",
         "//assets/fonts/terminus:ter-u12n",
-    ] + select({
-        "//n64:os": ["//sdk:libultra"],
-        "//conditions:default": [],
-    }),
+    ],
+)
+
+cc_library(
+    name = "base_pc",
+    srcs = [
+        "fatal_pc.c",
+    ],
+    hdrs = [
+        "system_pc.h",
+    ],
+    copts = COPTS,
+    deps = [
+        ":base",
+    ],
+)
+
+cc_library(
+    name = "base_n64",
+    srcs = [
+        "n64/console.c",
+        "n64/fatal.c",
+        "n64/mat4.c",
+        "n64/memory.c",
+        "n64/os.c",
+        "n64/stack_boot.s",
+        "n64/stack_idle.s",
+        "n64/start.s",
+        "n64/thread.c",
+    ],
+    hdrs = [
+        "n64/console.h",
+        "n64/mat4.h",
+        "n64/os.h",
+        "n64/system.h",
+    ],
+    copts = COPTS,
+    defines = ["F3DEX_GBI_2"],
+    deps = [
+        ":base",
+        "//sdk:libultra",
+    ],
 )
 
 cc_library(
@@ -95,7 +107,7 @@ cc_library(
     ],
     copts = COPTS,
     deps = [
-        ":base",
+        ":base_n64",
     ],
 )
 
