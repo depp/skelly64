@@ -37,11 +37,11 @@ cc_library(
         "vec3.c",
     ] + select({
         "//n64:os": [
-            "console_n64.c",
-            "fatal_n64.c",
-            "mat4_n64.c",
-            "memory_n64.c",
-            "thread.c",
+            "n64/console.c",
+            "n64/fatal.c",
+            "n64/mat4.c",
+            "n64/memory.c",
+            "n64/thread.c",
         ],
         "//conditions:default": [
             "fatal_pc.c",
@@ -60,9 +60,9 @@ cc_library(
         "vectypes.h",
     ] + select({
         "//n64:os": [
-            "console_n64.h",
-            "mat4_n64.h",
-            "os.h",
+            "n64/console.h",
+            "n64/mat4.h",
+            "n64/os.h",
         ],
         "//conditions:default": [],
     }),
