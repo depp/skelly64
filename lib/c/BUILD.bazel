@@ -79,10 +79,10 @@ cc_library(
 cc_library(
     name = "scheduler",
     srcs = [
-        "scheduler.c",
+        "n64/scheduler.c",
     ],
     hdrs = [
-        "scheduler.h",
+        "n64/scheduler.h",
     ],
     copts = COPTS,
     deps = [
