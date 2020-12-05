@@ -66,7 +66,9 @@ cc_library(
             "n64/os.h",
             "n64/system.h",
         ],
-        "//conditions:default": [],
+        "//conditions:default": [
+            "system_pc.h",
+        ],
     }),
     copts = COPTS,
     deps = [
