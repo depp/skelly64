@@ -32,6 +32,7 @@ cc_library(
         "float.c",
         "hash.c",
         "mat4.c",
+        "memory.c",
         "quat.c",
         "vec2.c",
         "vec3.c",
@@ -45,7 +46,6 @@ cc_library(
         ],
         "//conditions:default": [
             "fatal_pc.c",
-            "memory_pc.c",
         ],
     }),
     hdrs = [
@@ -54,6 +54,7 @@ cc_library(
         "float.h",
         "hash.h",
         "mat4.h",
+        "memory.h",
         "quat.h",
         "vec2.h",
         "vec3.h",
@@ -63,6 +64,7 @@ cc_library(
             "n64/console.h",
             "n64/mat4.h",
             "n64/os.h",
+            "n64/system.h",
         ],
         "//conditions:default": [],
     }),
