@@ -42,6 +42,10 @@ cc_library(
             "n64/fatal.c",
             "n64/mat4.c",
             "n64/memory.c",
+            "n64/os.c",
+            "n64/stack_boot.s",
+            "n64/stack_idle.s",
+            "n64/start.s",
             "n64/thread.c",
         ],
         "//conditions:default": [
@@ -71,11 +75,12 @@ cc_library(
         ],
     }),
     copts = COPTS,
+    defines = ["F3DEX_GBI_2"],
     deps = [
         ":defs",
         "//assets/fonts/terminus:ter-u12n",
     ] + select({
-        "//n64:os": ["//n64:libultra"],
+        "//n64:os": ["//sdk:libultra"],
         "//conditions:default": [],
     }),
 )
