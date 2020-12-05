@@ -55,11 +55,13 @@ type entry struct {
 }
 
 type section struct {
-	dtype     datatype
-	Entries   []*entry
-	UpperName string // Upper case name.
-	Type      string // C type name.
-	Start     int    // Index of first asset of this type.
+	dtype           datatype
+	Entries         []*entry
+	ObjectsPerAsset int    // Slots per entry.
+	LowerName       string // Lower case name.
+	UpperName       string // Upper case name.
+	Type            string // C type name.
+	Start           int    // Index of first asset of this type.
 }
 
 type manifest struct {
@@ -111,9 +113,11 @@ func readManifest(filename string) (*manifest, error) {
 	for tidx, tinfo := range types {
 		if tinfo.name != "" {
 			sections[tidx] = &section{
-				dtype:     datatype(tidx),
-				UpperName: strings.ToUpper(tinfo.name),
-				Type:      "pak_" + tinfo.name,
+				dtype:           datatype(tidx),
+				ObjectsPerAsset: tinfo.slotCount,
+				LowerName:       tinfo.name,
+				UpperName:       strings.ToUpper(tinfo.name),
+				Type:            "pak_" + tinfo.name,
 			}
 		}
 	}

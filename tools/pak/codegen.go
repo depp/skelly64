@@ -23,6 +23,7 @@ enum {
 `
 
 const tmplPak = `#pragma once
+#include "base/pak/types.h"
 enum {
     PAK_SIZE = {{.Size}},
 {{- range .Sections}}
@@ -30,6 +31,12 @@ enum {
     PAK_{{.UpperName}}_COUNT = {{len .Entries}},
 {{- end}}
 };
+{{- range .Sections}}
+// Return the object ID for the given asset.
+static inline int pak_{{.LowerName}}_object(pak_{{.LowerName}} asset) {
+	return PAK_{{.UpperName}}_START + (asset.id - 1) * {{.ObjectsPerAsset}};
+}
+{{- end}}
 `
 
 func writeTemplate(filename string, tmpl *template.Template, d interface{}) error {
