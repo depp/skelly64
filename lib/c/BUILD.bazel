@@ -29,6 +29,7 @@ cc_library(
         "console_global.c",
         "console_internal.h",
         "fatal.c",
+        "fixup.c",
         "float.c",
         "hash.c",
         "mat4.c",
@@ -40,6 +41,7 @@ cc_library(
     hdrs = [
         "base.h",
         "console.h",
+        "fixup.h",
         "float.h",
         "hash.h",
         "mat4.h",
