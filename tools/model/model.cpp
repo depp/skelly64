@@ -163,7 +163,7 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
         for (size_t i = 0; i < anim.frame.size(); i++) {
             const AnimationFrame &frame = anim.frame.at(i);
             FFrame f{};
-            f.time = frame.time;
+            f.time = util::PutFloat32(frame.time);
             float next_time = i + 1 < anim.frame.size() ? anim.frame[i + 1].time
                                                         : anim.duration;
             float dt = next_time - frame.time;
