@@ -1,5 +1,12 @@
 workspace(name = "thornmarked")
 
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# ==============================================================================
+# Local Dependencies
+# ==============================================================================
+
 load("//base/bazel:tools.bzl", "local_tools_repository")
 
 local_tools_repository(
@@ -31,7 +38,9 @@ pkg_config_repository(
     spec = "assimp",
 )
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# ==============================================================================
+# Go
+# ==============================================================================
 
 http_archive(
     name = "io_bazel_rules_go",
@@ -42,17 +51,24 @@ http_archive(
     ],
 )
 
+
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
 
 go_rules_dependencies()
 
 go_register_toolchains()
 
+# ==============================================================================
+# Toolchains
+# ==============================================================================
+
 register_toolchains(
     "//n64:cc-toolchain-n64",
 )
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+# ==============================================================================
+# Built Dependencies
+# ==============================================================================
 
 http_archive(
     name = "fmt",
