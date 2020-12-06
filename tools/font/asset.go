@@ -3,36 +3,33 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"math"
-	"sort"
 	"thornmarked/tools/texture"
 )
 
+const ()
+
+// makeAssetCharmap makes the character map array for the asset.
 func makeAssetCharmap(fn *font) ([]byte, error) {
-	const recSize = 4
-	chars := make([]int, 0, len(fn.charmap))
-	for c := range fn.charmap {
-		chars = append(chars, int(c))
-	}
-	sort.Ints(chars)
-	out := make([]byte, recSize*len(chars))
-	for i, c := range chars {
-		g := fn.charmap[uint32(c)]
-		if c > math.MaxUint16 {
-			return nil, fmt.Errorf("character does not fit in 16 bits: %#x", c)
+	out := make([]byte, 256)
+	for i, c := range fn.charmap {
+		if i >= uint32(len(out)) {
+			return nil, fmt.Errorf("character value too high, character = %d", i)
 		}
-		rec := out[i*recSize : (i+1)*recSize : (i+1)*recSize]
-		binary.BigEndian.PutUint16(rec[:2], uint16(c))
-		binary.BigEndian.PutUint16(rec[2:], uint16(g))
+		if c > 255 {
+			return nil, fmt.Errorf("glyph index too high, index = %d", c)
+		}
+		out[i] = byte(c)
 	}
 	return out, nil
 }
 
+// makeAssetGlyphs makes the glyph array for the asset.
 func makeAssetGlyphs(fn *font) ([]byte, error) {
 	const recSize = 8
 	out := make([]byte, len(fn.glyphs)*recSize)
 	for i, g := range fn.glyphs {
-		rec := out[i*recSize : (i+1)*recSize : (i+1)*recSize]
+		off := i * recSize
+		rec := out[off : off+recSize : off+recSize]
 		if g.size[0] > 0 && g.size[1] > 0 {
 			copy(rec, []byte{
 				byte(g.size[0]),
@@ -51,16 +48,21 @@ func makeAssetGlyphs(fn *font) ([]byte, error) {
 	return out, nil
 }
 
-func makeAssetTextures(fn *font, tf texture.SizedFormat) ([]byte, error) {
-	const recSize = 4
+// makeAssetTextures makes the texture array for the asset.
+func makeAssetTextures(fn *font, tf texture.SizedFormat, offset uint32) ([]byte, error) {
+	const recSize = 12
 	out := make([]byte, len(fn.textures)*recSize)
 	var pad [4]byte
 	for i, t := range fn.textures {
-		rec := out[i*recSize : (i+1)*recSize : (i+1)*recSize]
+		off := i * recSize
+		rec := out[off : off+recSize : off+recSize]
 		sx := t.Rect.Max.X - t.Rect.Min.X
 		sy := t.Rect.Max.Y - t.Rect.Min.Y
 		binary.BigEndian.PutUint16(rec[0:2], uint16(sx))
 		binary.BigEndian.PutUint16(rec[2:4], uint16(sy))
+		binary.BigEndian.PutUint16(rec[4:6], uint16(tf.Format.Enum()))
+		binary.BigEndian.PutUint16(rec[6:8], uint16(tf.Size.Enum()))
+		binary.BigEndian.PutUint32(rec[8:12], offset+uint32(len(out)))
 		d, err := texture.Pack(t, tf, texture.Linear)
 		if err != nil {
 			return nil, err
@@ -78,23 +80,27 @@ func makeAssetTextures(fn *font, tf texture.SizedFormat) ([]byte, error) {
 
 func makeAsset(fn *font, tf texture.SizedFormat) ([]byte, error) {
 	out := make([]byte, 8)
-	binary.BigEndian.PutUint16(out[0:2], uint16(len(fn.charmap)))
-	binary.BigEndian.PutUint16(out[2:4], uint16(len(fn.glyphs)))
-	binary.BigEndian.PutUint16(out[4:6], uint16(len(fn.textures)))
+	binary.BigEndian.PutUint16(out[0:2], uint16(len(fn.glyphs)))
+	binary.BigEndian.PutUint16(out[2:4], uint16(len(fn.textures)))
+
 	cmap, err := makeAssetCharmap(fn)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, cmap...)
+
 	glyphs, err := makeAssetGlyphs(fn)
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, glyphs...)
-	tex, err := makeAssetTextures(fn, tf)
+
+	binary.BigEndian.PutUint32(out[4:8], uint32(len(out)))
+	tex, err := makeAssetTextures(fn, tf, uint32(len(out)))
 	if err != nil {
 		return nil, err
 	}
 	out = append(out, tex...)
+
 	return out, nil
 }

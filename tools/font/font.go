@@ -488,6 +488,12 @@ func mainE() error {
 		return err
 	}
 	if opts.charset != nil {
+		// FIXME: better charset support.
+		for c := range opts.charset {
+			if c > 255 {
+				delete(opts.charset, c)
+			}
+		}
 		fn = fn.subset(opts.charset, opts.removeNotdef)
 	}
 	if opts.texfmt.Format != texture.UnknownFormat {

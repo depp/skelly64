@@ -22,18 +22,21 @@ const (
 	I
 )
 
-var fnames = [...]string{
-	RGBA: "RGBA",
-	CI:   "CI",
-	IA:   "IA",
-	I:    "I",
+var formats = [...]struct {
+	name string
+	enum uint32
+}{
+	RGBA: {name: "RGBA", enum: 0},
+	CI:   {name: "CI", enum: 2},
+	IA:   {name: "IA", enum: 3},
+	I:    {name: "I", enum: 4},
 }
 
 // String returns the name of the format.
 func (f Format) String() (s string) {
 	i := uint32(f)
-	if i < uint32(len(fnames)) {
-		s = fnames[i]
+	if i < uint32(len(formats)) {
+		s = formats[i].name
 	}
 	if s == "" {
 		s = strconv.FormatUint(uint64(i), 10)
@@ -43,13 +46,22 @@ func (f Format) String() (s string) {
 
 // Set sets the format to a string value.
 func (f *Format) Set(s string) error {
-	for i, n := range fnames {
-		if strings.EqualFold(s, n) {
+	for i, n := range formats {
+		if strings.EqualFold(s, n.name) {
 			*f = Format(i)
 			return nil
 		}
 	}
 	return fmt.Errorf("unknown format: %q", s)
+}
+
+// Enum returns the N64 enum value for this pixel format.
+func (f Format) Enum() uint32 {
+	i := uint32(f)
+	if 0 < i && i < uint32(len(formats)) {
+		return formats[i].enum
+	}
+	panic("invalid pixel format")
 }
 
 // PixelSize is a texture pixel size.
@@ -68,18 +80,21 @@ const (
 	Size4
 )
 
-var pixelsizes = [...]uint32{
-	Size32: 32,
-	Size16: 16,
-	Size8:  8,
-	Size4:  4,
+var pixelsizes = [...]struct {
+	size uint32
+	enum uint32
+}{
+	Size32: {size: 32, enum: 3},
+	Size16: {size: 16, enum: 2},
+	Size8:  {size: 8, enum: 1},
+	Size4:  {size: 4, enum: 0},
 }
 
 // String returns the name of the pixel size.
 func (s PixelSize) String() (st string) {
 	i := uint32(s)
 	if i < uint32(len(pixelsizes)) {
-		if sz := pixelsizes[i]; sz != 0 {
+		if sz := pixelsizes[i].size; sz != 0 {
 			return strconv.FormatUint(uint64(sz), 10)
 		}
 	}
@@ -93,7 +108,7 @@ func (s *PixelSize) Set(st string) error {
 		return err
 	}
 	for i, isz := range pixelsizes {
-		if isz == uint32(sz) {
+		if isz.size == uint32(sz) {
 			*s = PixelSize(i)
 			return nil
 		}
@@ -105,9 +120,18 @@ func (s *PixelSize) Set(st string) error {
 func (s PixelSize) Size() int {
 	i := uint32(s)
 	if i < uint32(len(pixelsizes)) {
-		return int(pixelsizes[i])
+		return int(pixelsizes[i].size)
 	}
 	return 0
+}
+
+// Enum returns the N64 enum value for this pixel size.
+func (s PixelSize) Enum() uint32 {
+	i := uint32(s)
+	if 0 < i && i < uint32(len(pixelsizes)) {
+		return pixelsizes[i].enum
+	}
+	panic("invalid pixel size")
 }
 
 // A SizedFormat is a combination pixel format and size.
