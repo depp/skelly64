@@ -97,7 +97,7 @@ func (sec *section) readData(objects [][]byte) error {
 			return err
 		}
 		if err := parseData(objects[i*n:i*n+n:i*n+n], sec.dtype, data); err != nil {
-			return fmt.Errorf("could not parse %s %q: %v", err)
+			return fmt.Errorf("could not parse %s %q: %v", sec.dtype.name(), e.filename, err)
 		}
 	}
 	return nil
