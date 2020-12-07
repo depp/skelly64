@@ -37,6 +37,10 @@ COPTS = (
         "//base/bazel:warnings_off": [],
         "//base/bazel:warnings_on": _COPTS_WARNING,
         "//base/bazel:warnings_error": _COPTS_WARNING + ["-Werror"],
+    }) +
+    select({
+        "//n64:os": ["-fexec-charset=windows-1252"],
+        "//conditions:default": [],
     })
 )
 

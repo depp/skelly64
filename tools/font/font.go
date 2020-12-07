@@ -17,6 +17,9 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/encoding/htmlindex"
+
 	"thornmarked/tools/font/charset"
 	"thornmarked/tools/getpath"
 	"thornmarked/tools/rectpack"
@@ -171,16 +174,12 @@ func rasterizeFont(filename string, size int) (*font, error) {
 	return &fn, nil
 }
 
-func (fn *font) subset(charset map[uint32]bool, removeNotdef bool) *font {
+func (fn *font) compact() {
 	gset := make(map[uint32]bool)
-	for c := range charset {
-		gset[fn.charmap[c]] = true
+	for _, g := range fn.charmap {
+		gset[g] = true
 	}
-	if removeNotdef {
-		delete(gset, 0)
-	} else {
-		gset[0] = true
-	}
+	gset[0] = true
 	gmap := make([]uint32, len(fn.glyphs))
 	var glyphs []*glyph
 	for i, g := range fn.glyphs {
@@ -191,19 +190,30 @@ func (fn *font) subset(charset map[uint32]bool, removeNotdef bool) *font {
 	}
 	charmap := make(map[uint32]uint32)
 	for c, g := range fn.charmap {
-		if charset[c] {
-			if g < uint32(len(gmap)) {
-				g = gmap[g]
-			} else {
-				g = 0
-			}
+		if g := gmap[g]; g != 0 {
 			charmap[c] = g
 		}
 	}
-	return &font{
-		charmap: charmap,
-		glyphs:  glyphs,
+	fn.charmap = charmap
+	fn.glyphs = glyphs
+}
+
+func (fn *font) subset(charset map[uint32]bool) {
+	for c := range fn.charmap {
+		if !charset[c] {
+			delete(fn.charmap, c)
+		}
 	}
+}
+
+func (fn *font) encode(cm *charmap.Charmap) {
+	ncm := make(map[uint32]uint32)
+	for c, g := range fn.charmap {
+		if b, ok := cm.EncodeRune(rune(c)); ok {
+			ncm[uint32(b)] = g
+		}
+	}
+	fn.charmap = ncm
 }
 
 func (fn *font) addShadow(pos image.Point, alpha float64) error {
@@ -480,6 +490,7 @@ type options struct {
 	texsize      image.Point
 	texfmt       texture.SizedFormat
 	charset      charset.Set
+	encoding     *charmap.Charmap
 	removeNotdef bool
 	mono         bool
 	fallbackfile string
@@ -550,6 +561,7 @@ func parseOpts() (o options, err error) {
 	textureArg := flag.String("out-texture", "", "output texture")
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
 	charsetArg := flag.String("charset", "", "path to character set file")
+	encodingArg := flag.String("encoding", "", "name of character encoding to use")
 	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
 	outDataArg := flag.String("out-data", "", "output font data file")
 	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
@@ -597,6 +609,17 @@ func parseOpts() (o options, err error) {
 		}
 		o.charset = cs
 	}
+	if *encodingArg != "" {
+		enc, err := htmlindex.Get(*encodingArg)
+		if err != nil {
+			return o, fmt.Errorf("unknown encoding %q: %v", *encodingArg, err)
+		}
+		cm, ok := enc.(*charmap.Charmap)
+		if !ok {
+			return o, fmt.Errorf("encoding is not a simple charmap: %q", *encodingArg)
+		}
+		o.encoding = cm
+	}
 	o.removeNotdef = *removeNotdefArg
 	o.fallbackfile = getpath.GetPath(*outFallbackArg)
 	if *shadowArg != "" {
@@ -618,13 +641,14 @@ func mainE() error {
 		return err
 	}
 	if opts.charset != nil {
-		// FIXME: better charset support.
-		for c := range opts.charset {
-			if c > 255 {
-				delete(opts.charset, c)
-			}
-		}
-		fn = fn.subset(opts.charset, opts.removeNotdef)
+		fn.subset(opts.charset)
+	}
+	if opts.encoding != nil {
+		fn.encode(opts.encoding)
+	}
+	fn.compact()
+	if opts.removeNotdef {
+		fn.glyphs[0].image = image.RGBA{}
 	}
 	if opts.shadow {
 		if err := fn.addShadow(opts.shadowPos, opts.shadowAlpha); err != nil {

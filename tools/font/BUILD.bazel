@@ -14,5 +14,7 @@ go_binary(
         "//tools/getpath",
         "//tools/rectpack",
         "//tools/texture",
+        "@org_golang_x_text//encoding/charmap",
+        "@org_golang_x_text//encoding/htmlindex",
     ],
 )

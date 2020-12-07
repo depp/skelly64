@@ -9,6 +9,8 @@ def _bitmap_font_impl(ctx):
     ]
     if ctx.attr.shadow:
         args.append("-shadow=" + ctx.attr.shadow)
+    if ctx.attr.encoding:
+        args.append("-encoding=" + ctx.attr.encoding)
     src = ctx.file.src
     out_dat = ctx.actions.declare_file(ctx.label.name + ".font")
     out_tex = ctx.actions.declare_file(ctx.label.name + ".png")
@@ -45,6 +47,7 @@ bitmap_font = rule(
             allow_single_file = True,
             mandatory = True,
         ),
+        "encoding": attr.string(),
         "shadow": attr.string(),
         "_converter": attr.label(
             default = Label("//tools/font"),
