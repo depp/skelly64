@@ -119,6 +119,8 @@ func (mn *manifest) writeStats(filename string, odata [][]byte, offsets []uint32
 		}
 		n := sec.dtype.slotCount()
 		sizes := make([]int, n)
+		tsizes := make([]int, n)
+		var tsize int
 		for i := range sec.Entries {
 			off := sec.Start - 1 + i*n
 			edata := odata[off : off+n : off+n]
@@ -126,9 +128,14 @@ func (mn *manifest) writeStats(filename string, odata [][]byte, offsets []uint32
 				if len(d) > sizes[j] {
 					sizes[j] = len(d)
 				}
+				tsizes[j] += len(d)
+				tsize += len(d)
 			}
 		}
 		if _, err := fmt.Fprintf(w, "    Max size: %d\n", sizes); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "    Total sizes: %d %d\n", tsizes, tsize); err != nil {
 			return err
 		}
 		switch sec.dtype {
