@@ -1,6 +1,15 @@
 def _bitmap_font_impl(ctx):
-    src = ctx.file.src
     charset = ctx.file.charset
+    args = [
+        "-size=" + ctx.attr.font_size,
+        "-format=" + ctx.attr.format,
+        "-texture-size=" + ctx.attr.texsize,
+        "-remove-notdef",
+        "-charset=" + charset.path,
+    ]
+    if ctx.attr.shadow:
+        args.append("-shadow=" + ctx.attr.shadow)
+    src = ctx.file.src
     out_dat = ctx.actions.declare_file(ctx.label.name + ".font")
     out_tex = ctx.actions.declare_file(ctx.label.name + ".png")
     ctx.actions.run(
@@ -12,12 +21,7 @@ def _bitmap_font_impl(ctx):
             "-font=" + src.path,
             "-out-texture=" + out_tex.path,
             "-out-data=" + out_dat.path,
-            "-size=" + ctx.attr.font_size,
-            "-format=" + ctx.attr.format,
-            "-texture-size=" + ctx.attr.texsize,
-            "-remove-notdef",
-            "-charset=" + charset.path,
-        ],
+        ] + args,
     )
     return [DefaultInfo(files = depset([out_dat]))]
 
@@ -41,6 +45,7 @@ bitmap_font = rule(
             allow_single_file = True,
             mandatory = True,
         ),
+        "shadow": attr.string(),
         "_converter": attr.label(
             default = Label("//tools/font"),
             allow_single_file = True,

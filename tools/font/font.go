@@ -11,6 +11,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"strconv"
@@ -205,6 +206,97 @@ func (fn *font) subset(charset map[uint32]bool, removeNotdef bool) *font {
 	}
 }
 
+func (fn *font) addShadow(pos image.Point, alpha float64) error {
+	// Alpha color for the shadow.
+	scolor := math.Round(256 * alpha)
+	var scolor8 uint8
+	if scolor <= 0 {
+		return nil
+	} else if scolor >= 255 {
+		scolor8 = 255
+	} else {
+		scolor8 = uint8(scolor)
+	}
+	simg := image.NewUniform(color.RGBA{A: scolor8})
+	simg = image.NewUniform(color.RGBA{A: 255})
+
+	// Alpha texture to hold the glyph. Must be as large as the largest glyph.
+	var gsize [2]int32
+	for _, g := range fn.glyphs {
+		if g.size[0] > gsize[0] {
+			gsize[0] = g.size[0]
+		}
+		if g.size[1] > gsize[1] {
+			gsize[1] = g.size[1]
+		}
+	}
+	ga := image.NewAlpha(image.Rectangle{
+		Max: image.Point{
+			X: int(gsize[0]),
+			Y: int(gsize[1]),
+		},
+	})
+
+	// Shadow color image.
+
+	for _, g := range fn.glyphs {
+		// Copy the glyph to the alpha texture. Alpha textures are faster to use
+		// as masks.
+		ss := g.image.Stride
+		ds := ga.Stride
+		xsz := g.image.Rect.Max.X - g.image.Rect.Min.X
+		ysz := g.image.Rect.Max.Y - g.image.Rect.Min.Y
+		for y := 0; y < ysz; y++ {
+			srow := g.image.Pix[y*ss : y*ss+xsz*4 : y*ss+xsz*4]
+			drow := ga.Pix[y*ds : y*ds+xsz : y*ds+xsz]
+			for x := 0; x < xsz; x++ {
+				drow[x] = srow[x*4+3]
+			}
+		}
+
+		// Create a new glyph image, larger than the original.
+		bounds := g.image.Rect
+		if pos.X < 0 {
+			bounds.Min.X += pos.X
+		} else {
+			bounds.Max.X += pos.X
+		}
+		if pos.Y < 0 {
+			bounds.Max.Y += pos.Y
+		} else {
+			bounds.Max.Y += pos.Y
+		}
+		nimg := image.NewRGBA(bounds)
+
+		// Render the drop shadow.
+		rdest := g.image.Rect
+		rdest.Min.X += pos.X
+		rdest.Min.Y += pos.Y
+		rdest.Max.X += pos.X
+		rdest.Max.Y += pos.Y
+		draw.DrawMask(nimg, rdest, simg, image.Point{}, ga, image.Point{}, draw.Src)
+
+		// Draw the original glyph on top.
+		draw.Draw(nimg, g.image.Rect, &g.image, g.image.Rect.Min, draw.Over)
+
+		// Overwrite the glyph image.
+		g.image = *nimg
+		if pos.X > 0 {
+			g.size[0] += int32(pos.X)
+		} else {
+			g.size[0] -= int32(pos.X)
+			g.center[0] -= int32(pos.X)
+		}
+		if pos.Y > 0 {
+			g.size[1] += int32(pos.Y)
+		} else {
+			g.size[1] -= int32(pos.Y)
+			g.center[1] -= int32(pos.Y)
+		}
+	}
+	return nil
+}
+
 func drawBox(im *image.RGBA, sz, x0, y0, x1, y1 int, c uint8) {
 	for y := y0; y < y0+sz; y++ {
 		for x := x0; x < x1; x++ {
@@ -391,6 +483,9 @@ type options struct {
 	removeNotdef bool
 	mono         bool
 	fallbackfile string
+	shadow       bool
+	shadowPos    image.Point
+	shadowAlpha  float64
 }
 
 func parseSize(s string) (pt image.Point, err error) {
@@ -419,6 +514,35 @@ func parseCP(s string) (uint32, error) {
 	return uint32(n), nil
 }
 
+func parseShadow(arg string, o *options) error {
+	fields := strings.Split(arg, ":")
+	if len(fields) < 2 {
+		return fmt.Errorf("got %d fields, expected at least 2", len(fields))
+	}
+	x, err := strconv.ParseInt(fields[0], 10, strconv.IntSize)
+	if err != nil {
+		return fmt.Errorf("invalid x %q: %v", fields[0], err)
+	}
+	y, err := strconv.ParseInt(fields[1], 10, strconv.IntSize)
+	if err != nil {
+		return fmt.Errorf("invalid y %q: %v", fields[1], err)
+	}
+	var alpha float64 = 1.0
+	if len(fields) >= 3 {
+		alpha, err = strconv.ParseFloat(fields[2], 32)
+		if err != nil {
+			return fmt.Errorf("invalid alpha %q: %v", fields[2], err)
+		}
+		if !(0.0 <= alpha && alpha <= 1.0) {
+			return fmt.Errorf("alpha not between 0 and 1: %q", fields[2])
+		}
+	}
+	o.shadow = true
+	o.shadowPos = image.Point{X: int(x), Y: int(y)}
+	o.shadowAlpha = alpha
+	return nil
+}
+
 func parseOpts() (o options, err error) {
 	fontArg := flag.String("font", "", "font to rasterize")
 	sizeArg := flag.Int("size", 0, "size to rasterize font at")
@@ -431,6 +555,7 @@ func parseOpts() (o options, err error) {
 	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
 	flag.BoolVar(&o.mono, "mono", false, "render monochrome (1-bit, instead of grayscale)")
 	outFallbackArg := flag.String("out-fallback", "", "output for fallback font data")
+	shadowArg := flag.String("shadow", "", "add drop shadow `x:y[:alpha]`")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
@@ -474,6 +599,11 @@ func parseOpts() (o options, err error) {
 	}
 	o.removeNotdef = *removeNotdefArg
 	o.fallbackfile = getpath.GetPath(*outFallbackArg)
+	if *shadowArg != "" {
+		if err := parseShadow(*shadowArg, &o); err != nil {
+			return o, fmt.Errorf("invalid -shadow %q: %v", *shadowArg, err)
+		}
+	}
 
 	return o, nil
 }
@@ -495,6 +625,11 @@ func mainE() error {
 			}
 		}
 		fn = fn.subset(opts.charset, opts.removeNotdef)
+	}
+	if opts.shadow {
+		if err := fn.addShadow(opts.shadowPos, opts.shadowAlpha); err != nil {
+			return fmt.Errorf("could not add shadow: %v", err)
+		}
 	}
 	if opts.texfmt.Format != texture.UnknownFormat {
 		for _, g := range fn.glyphs {
