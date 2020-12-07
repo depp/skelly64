@@ -11,6 +11,7 @@ type datatype uint32
 const (
 	typeUnknown datatype = iota
 	typeData
+	typeFont
 	typeTrack
 	typeModel
 	typeTexture
@@ -23,6 +24,7 @@ type typeinfo struct {
 
 var types = [...]typeinfo{
 	typeData:    {"data", 1},
+	typeFont:    {"font", 1},
 	typeModel:   {"model", 2},
 	typeTexture: {"texture", 1},
 	typeTrack:   {"track", 2},

@@ -79,27 +79,35 @@ func makeAssetTextures(fn *font, tf texture.SizedFormat, offset uint32) ([]byte,
 }
 
 func makeAsset(fn *font, tf texture.SizedFormat) ([]byte, error) {
-	out := make([]byte, 8)
-	binary.BigEndian.PutUint16(out[0:2], uint16(len(fn.glyphs)))
-	binary.BigEndian.PutUint16(out[2:4], uint16(len(fn.textures)))
+	hdr := make([]byte, 8)
+	binary.BigEndian.PutUint16(hdr[0:2], uint16(len(fn.glyphs)))
+	binary.BigEndian.PutUint16(hdr[2:4], uint16(len(fn.textures)))
+	pos := len(hdr)
 
 	cmap, err := makeAssetCharmap(fn)
 	if err != nil {
 		return nil, err
 	}
-	out = append(out, cmap...)
+	pos += len(cmap)
 
 	glyphs, err := makeAssetGlyphs(fn)
 	if err != nil {
 		return nil, err
 	}
-	out = append(out, glyphs...)
+	pos += len(glyphs)
 
-	binary.BigEndian.PutUint32(out[4:8], uint32(len(out)))
-	tex, err := makeAssetTextures(fn, tf, uint32(len(out)))
+	binary.BigEndian.PutUint32(hdr[4:8], uint32(pos))
+	tex, err := makeAssetTextures(fn, tf, uint32(pos))
 	if err != nil {
 		return nil, err
 	}
+	pos += len(tex)
+
+	out := make([]byte, 16, 16+pos)
+	copy(out, "Font")
+	out = append(out, hdr...)
+	out = append(out, cmap...)
+	out = append(out, glyphs...)
 	out = append(out, tex...)
 
 	return out, nil
