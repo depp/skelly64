@@ -204,7 +204,7 @@ func (pcm *pcmdata) makeLoop(md *metadata) error {
 		out[i] = int16(xx)
 	}
 	pcm.samples = out
-	begin := pcm.addMarker(extra, "Begin")
+	begin := pcm.addMarker(totallen-looplen, "Begin")
 	end := pcm.addMarker(totallen, "End")
 	if pcm.inst == nil {
 		pcm.inst = new(aiff.Instrument)
