@@ -94,8 +94,17 @@ func readMetadata(opts *options) (md metadata, err error) {
 	return md, nil
 }
 
+// pcmdata contais 16-bit mono PCM.
+type pcmdata struct {
+	rate      int
+	markers   []aiff.Marker
+	maxmarker int
+	inst      *aiff.Instrument
+	samples   []int16
+}
+
 // readPCM reads the input as 16-bit mono PCM.
-func readPCM(opts *options) ([]int16, error) {
+func readPCM(opts *options) (*pcmdata, error) {
 	pcmfile := opts.input
 
 	// Decode FLAC.
@@ -143,7 +152,21 @@ func readPCM(opts *options) ([]int16, error) {
 	for i := range r {
 		r[i] = int16(binary.LittleEndian.Uint16(raw[i*2:]))
 	}
-	return r, nil
+	return &pcmdata{
+		rate:    opts.rate,
+		samples: r,
+	}, nil
+}
+
+func (pcm *pcmdata) addMarker(pos int, name string) int {
+	id := pcm.maxmarker + 1
+	pcm.maxmarker = id + 1
+	pcm.markers = append(pcm.markers, aiff.Marker{
+		ID:       id,
+		Position: pos,
+		Name:     name,
+	})
+	return id
 }
 
 func alignSample(n int) int {
@@ -152,45 +175,60 @@ func alignSample(n int) int {
 
 // makeLoop returns a seamless loop from the given PCM data according to the
 // metadata.
-func makeLoop(opts *options, md *metadata, pcm []int16) ([]int16, error) {
+func (pcm *pcmdata) makeLoop(md *metadata) error {
 	if md.LoopLength == nil {
-		return pcm, nil
+		return nil
 	}
-	looplen := alignSample(int(math.Round(*md.LoopLength * float64(opts.rate))))
-	extra := len(pcm) - looplen
+	inlen := len(pcm.samples)
+	looplen := alignSample(int(math.Round(*md.LoopLength * float64(pcm.rate))))
+	extra := inlen - looplen
+	info := fmt.Sprintf("loop = %f s, %d samples; audio = %f s, %d samples",
+		float64(looplen)/float64(pcm.rate), looplen,
+		float64(inlen)/float64(pcm.rate), inlen)
 	if extra < 0 {
-		return nil, fmt.Errorf(
-			"loop is longer than audio (loop = %f s, %d samples; audio = %f s, %d samples)",
-			float64(looplen)/float64(opts.rate), looplen,
-			float64(len(pcm))/float64(opts.rate), len(pcm))
+		return fmt.Errorf("loop is longer than audio (%s)", info)
 	}
-	if extra > len(pcm) {
-		return nil, fmt.Errorf(
-			"loop is shorter than half of audio (loop = %f s, %d samples; audio = %f s, %d samples)",
-			float64(looplen)/float64(opts.rate), looplen,
-			float64(len(pcm))/float64(opts.rate), len(pcm))
+	if extra > inlen {
+		return fmt.Errorf("loop is shorter than half of audio (%s)", info)
 	}
-	totallen := alignSample(len(pcm) + extra)
+	totallen := alignSample(inlen + extra)
 	out := make([]int16, totallen)
-	copy(out[looplen:], pcm)
-	for i, x := range pcm {
-		out[i] += x
+	copy(out[looplen:], pcm.samples)
+	for i, x := range pcm.samples {
+		xx := int32(x) + int32(out[i])
+		if xx < math.MinInt16 {
+			xx = math.MinInt16
+		} else if xx > math.MaxInt16 {
+			xx = math.MaxInt16
+		}
+		out[i] = int16(xx)
 	}
-	return out, nil
+	pcm.samples = out
+	begin := pcm.addMarker(extra, "Begin")
+	end := pcm.addMarker(totallen, "End")
+	if pcm.inst == nil {
+		pcm.inst = new(aiff.Instrument)
+	}
+	pcm.inst.SustainLoop = aiff.Loop{
+		Mode:  aiff.LoopForward,
+		Begin: begin,
+		End:   end,
+	}
+	return nil
 }
 
-// writePCM writes the output as an AIFF-C file.
-func writePCM(opts *options, pcm []int16) error {
-	data := make([]byte, 2*len(pcm))
-	for i, x := range pcm {
+// writewrites the output as an AIFF-C file.
+func (pcm *pcmdata) write(opts *options) error {
+	data := make([]byte, 2*len(pcm.samples))
+	for i, x := range pcm.samples {
 		binary.BigEndian.PutUint16(data[i*2:], uint16(x))
 	}
 	a := aiff.AIFF{
 		Common: aiff.Common{
 			NumChannels:     1,
-			NumFrames:       len(pcm),
+			NumFrames:       len(pcm.samples),
 			SampleSize:      16,
-			SampleRate:      aiff.Float80(float64(opts.rate)),
+			SampleRate:      aiff.Float80(float64(pcm.rate)),
 			Compression:     [4]byte{'N', 'O', 'N', 'E'},
 			CompressionName: "no compression",
 		},
@@ -198,7 +236,14 @@ func writePCM(opts *options, pcm []int16) error {
 			Data: data,
 		},
 	}
-	a.Chunks = []aiff.Chunk{&a.Common, a.Data}
+	a.Chunks = []aiff.Chunk{&a.Common}
+	if len(pcm.markers) != 0 {
+		a.Chunks = append(a.Chunks, &aiff.Markers{Markers: pcm.markers})
+	}
+	if pcm.inst != nil {
+		a.Chunks = append(a.Chunks, pcm.inst)
+	}
+	a.Chunks = append(a.Chunks, a.Data)
 	fdata, err := a.Write(true)
 	if err != nil {
 		return fmt.Errorf("could not create AIFF-C data: %v", err)
@@ -222,12 +267,11 @@ func mainE() error {
 		return err
 	}
 
-	pcm, err = makeLoop(&opts, &md, pcm)
-	if err != nil {
+	if err := pcm.makeLoop(&md); err != nil {
 		return err
 	}
 
-	return writePCM(&opts, pcm)
+	return pcm.write(&opts)
 }
 
 func main() {

@@ -33,6 +33,8 @@ type parsableChunk interface {
 	parseChunk(data []byte, compressed bool) error
 }
 
+// =============================================================================
+
 // A RawChunk is a raw chunk which has not been decoded or interpreted.
 type RawChunk struct {
 	ID   [4]byte
@@ -53,6 +55,8 @@ func (c *RawChunk) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
 	data = c.Data
 	return
 }
+
+// =============================================================================
 
 // A Common is the common chunk in an AIFF file.
 type Common struct {
@@ -120,6 +124,8 @@ func (c *Common) ChunkData(compressed bool) (id [4]byte, data []byte, err error)
 	return
 }
 
+// =============================================================================
+
 // A FormatVersion is the FVER chunk in an AIFC file.
 type FormatVersion struct {
 	Timestamp uint32
@@ -147,6 +153,8 @@ func (c *FormatVersion) ChunkData(compressed bool) (id [4]byte, data []byte, err
 	binary.BigEndian.PutUint32(data, c.Timestamp)
 	return
 }
+
+// =============================================================================
 
 // A SoundData is the SSND chunk in an AIFF file.
 type SoundData struct {
@@ -177,6 +185,150 @@ func (c *SoundData) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
 	copy(data[8:], c.Data)
 	return
 }
+
+// =============================================================================
+
+// A Marker is a named location in an AIFF file.
+type Marker struct {
+	ID       int
+	Position int
+	Name     string
+}
+
+// A Markers is the MARK chunk in an AIFF file.
+type Markers struct {
+	Markers []Marker
+}
+
+func (c *Markers) parseChunk(data []byte, _ bool) error {
+	count := int(binary.BigEndian.Uint16(data))
+	markers := make([]Marker, count)
+	d := data[2:]
+	for i := range markers {
+		if len(d) < 6 {
+			return errUnexpectedEOF
+		}
+		id := int(binary.BigEndian.Uint16(d))
+		pos := int(binary.BigEndian.Uint32(d[2:]))
+		n := int(d[6])
+		sz := 7 + n + (n & 1)
+		if len(d) < sz {
+			return errUnexpectedEOF
+		}
+		markers[i] = Marker{
+			ID:       id,
+			Position: pos,
+			Name:     string(d[7 : 7+n]),
+		}
+		d = d[sz:]
+	}
+	return nil
+}
+
+// ChunkData implements the Chunk interface.
+func (c *Markers) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+	copy(id[:], "MARK")
+	n := 2
+	for _, m := range c.Markers {
+		if len(m.Name) > 255 {
+			return id, data, fmt.Errorf("marker name too long, must be 255 bytes or less: %q", m.Name)
+		}
+		n += (7 + len(m.Name) + 1) &^ 1
+	}
+	data = make([]byte, n)
+	binary.BigEndian.PutUint16(data, uint16(len(c.Markers)))
+	d := data[2:]
+	for _, m := range c.Markers {
+		binary.BigEndian.PutUint16(d, uint16(m.ID))
+		binary.BigEndian.PutUint32(d[2:], uint32(m.Position))
+		d[6] = byte(len(m.Name))
+		copy(d[7:], m.Name)
+		d = d[(7+len(m.Name)+1)&^1:]
+	}
+	return id, data, nil
+}
+
+// =============================================================================
+
+// A LoopMode describes how a loop is played back.
+type LoopMode int
+
+const (
+	// LoopNone does not loop.
+	LoopNone LoopMode = 0
+	// LoopForward plays the loop forwards repeatedly.
+	LoopForward LoopMode = 1
+	// LoopForwardBackward alternates between playing the loop forwards and
+	// backwards.
+	LoopForwardBackward LoopMode = 2
+)
+
+// A Loop is an audio loop in an AIFF file.
+type Loop struct {
+	Mode  LoopMode
+	Begin int // Marker ID.
+	End   int // Marker ID.
+}
+
+func (l *Loop) parse(data []byte) {
+	l.Mode = LoopMode(binary.BigEndian.Uint16(data))
+	l.Begin = int(binary.BigEndian.Uint16(data[2:]))
+	l.End = int(binary.BigEndian.Uint16(data[4:]))
+}
+
+func (l *Loop) write(data []byte) {
+	binary.BigEndian.PutUint16(data, uint16(l.Mode))
+	binary.BigEndian.PutUint16(data[2:], uint16(l.Begin))
+	binary.BigEndian.PutUint16(data[4:], uint16(l.End))
+}
+
+// An Instrument is a chunk describing how to use the data in an AIFF file as a
+// sampled musical instrument.
+type Instrument struct {
+	BaseNote     int
+	Detune       int
+	LowNote      int
+	HighNote     int
+	LowVelocity  int
+	HighVelocity int
+	Gain         int
+	SustainLoop  Loop
+	ReleaseLoop  Loop
+}
+
+func (c *Instrument) parseChunk(data []byte, _ bool) error {
+	if len(data) < 20 {
+		return errors.New("instrument chunk too short")
+	}
+	c.BaseNote = int(data[0])
+	c.Detune = int(data[1])
+	c.LowNote = int(data[2])
+	c.HighNote = int(data[3])
+	c.LowVelocity = int(data[4])
+	c.HighVelocity = int(data[5])
+	c.Gain = int(int16(binary.BigEndian.Uint16(data[6:])))
+	c.SustainLoop.parse(data[8:])
+	c.SustainLoop.parse(data[14:])
+	return nil
+}
+
+// ChunkData implements the Chunk interface.
+func (c *Instrument) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+	copy(id[:], "INST")
+	data = make([]byte, 20)
+	data[0] = byte(c.BaseNote)
+	data[1] = byte(c.Detune)
+	data[2] = byte(c.LowNote)
+	data[3] = byte(c.HighNote)
+	data[4] = byte(c.LowVelocity)
+	data[5] = byte(c.HighVelocity)
+	binary.BigEndian.PutUint16(data[6:], uint16(c.Gain))
+	c.SustainLoop.write(data[8:])
+	c.SustainLoop.write(data[14:])
+	return id, data, nil
+}
+
+// =============================================================================
 
 // A ApplicationData is the APPL chunk in an AIFF file.
 type ApplicationData struct {
@@ -231,6 +383,8 @@ func (c *ApplicationData) parseAPPL(data []byte) (Chunk, error) {
 	}
 	return ck, nil
 }
+
+// =============================================================================
 
 // A VADPCMCodes contains the codebook for a VADPCM-compressed file.
 type VADPCMCodes struct {
@@ -292,6 +446,8 @@ func (c *VADPCMCodes) parseAPPL(data []byte) error {
 	c.Table = table
 	return nil
 }
+
+// =============================================================================
 
 var errUnexpectedEOF = errors.New("unexpected end of file in AIFF data")
 
@@ -359,6 +515,10 @@ func Parse(data []byte) (*AIFF, error) {
 			d := new(SoundData)
 			a.Data = d
 			ck = d
+		case "MARK":
+			ck = new(Markers)
+		case "INST":
+			ck = new(Instrument)
 		case "APPL":
 			d := new(ApplicationData)
 			ck, err := d.parseAPPL(cdata)
