@@ -375,6 +375,8 @@ func (c *ApplicationData) parseAPPL(data []byte) (Chunk, error) {
 	switch s {
 	case "VADPCMCODES":
 		ck = new(VADPCMCodes)
+	case "VADPCMLOOPS":
+		ck = new(VADPCMLoops)
 	default:
 		return c, nil
 	}
@@ -382,6 +384,18 @@ func (c *ApplicationData) parseAPPL(data []byte) (Chunk, error) {
 		return nil, err
 	}
 	return ck, nil
+}
+
+// writeStoc creates an APPL / stock chunk.
+func writeStoc(name string, adata []byte) (id [4]byte, data []byte, err error) {
+	copy(id[:], "APPL")
+	hlen := (5 + len(name) + 1) &^ 1
+	data = make([]byte, hlen+len(adata))
+	copy(data[0:4], "stoc")
+	data[4] = byte(len(name))
+	copy(data[5:], name)
+	copy(data[hlen:], adata)
+	return id, data, nil
 }
 
 // =============================================================================
@@ -402,23 +416,14 @@ func (c *VADPCMCodes) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
 	if tsize != len(c.Table) {
 		return id, data, fmt.Errorf("incorrect VADPCM table size: table has size %d, should be %d", len(c.Table), tsize)
 	}
-	data = make([]byte, 4+12+6+2*tsize)
-	copy(data[0:4], "stoc")
-	data[4] = 11
-	copy(data[5:16], "VADPCMCODES")
-	binary.BigEndian.PutUint16(data[16:18], uint16(c.Version))
-	binary.BigEndian.PutUint16(data[18:20], uint16(c.Order))
-	binary.BigEndian.PutUint16(data[20:22], uint16(c.NumEntries))
-	rem := data[22:]
-	for _, x := range c.Table {
-		binary.BigEndian.PutUint16(rem[:2], uint16(x))
-		rem = rem[2:]
+	adata := make([]byte, 6+2*tsize)
+	binary.BigEndian.PutUint16(adata[0:], uint16(c.Version))
+	binary.BigEndian.PutUint16(adata[2:], uint16(c.Order))
+	binary.BigEndian.PutUint16(adata[4:], uint16(c.NumEntries))
+	for i, x := range c.Table {
+		binary.BigEndian.PutUint16(data[6+2*i:], uint16(x))
 	}
-	if len(rem) != 0 {
-		panic("out of sync with table")
-	}
-	copy(id[:], "APPL")
-	return
+	return writeStoc("VADPCMCODES", adata)
 }
 
 func (c *VADPCMCodes) parseAPPL(data []byte) error {
@@ -444,6 +449,70 @@ func (c *VADPCMCodes) parseAPPL(data []byte) error {
 		table[i] = int16(binary.BigEndian.Uint16(data[i*2 : i*2+2]))
 	}
 	c.Table = table
+	return nil
+}
+
+// =============================================================================
+
+// A VADPCMLoop is a loop in a VADPCM-encoded file.
+type VADPCMLoop struct {
+	Start int
+	End   int
+	Count int
+	State [16]int16
+}
+
+// A VADPCMLoops contains the loop information for a VADPCM-encoded file.
+type VADPCMLoops struct {
+	Loops []VADPCMLoop
+}
+
+// ChunkData implements the Chunk interface.
+func (c *VADPCMLoops) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+	adata := make([]byte, 4+28*len(c.Loops))
+	binary.BigEndian.PutUint16(adata, 1)
+	binary.BigEndian.PutUint16(adata[2:], uint16(len(c.Loops)))
+	d := adata[4:]
+	for _, l := range c.Loops {
+		binary.BigEndian.PutUint32(d, uint32(l.Start))
+		binary.BigEndian.PutUint32(d[4:], uint32(l.End))
+		binary.BigEndian.PutUint32(d[8:], uint32(l.Count))
+		for i, x := range l.State {
+			binary.BigEndian.PutUint16(d[12+2*i:], uint16(x))
+		}
+		d = d[28:]
+	}
+	return writeStoc("VADPCMLOOPS", adata)
+}
+
+func (c *VADPCMLoops) parseAPPL(data []byte) error {
+	if len(data) < 2 {
+		return errUnexpectedEOF
+	}
+	ver := binary.BigEndian.Uint16(data)
+	if ver != 1 {
+		return fmt.Errorf("unknown VADPCMLOOPS version: %d", ver)
+	}
+	d := data[2:]
+	if len(d) < 2 {
+		return errUnexpectedEOF
+	}
+	count := int(binary.BigEndian.Uint16(data))
+	d = d[2:]
+	if len(d) < 28*count {
+		return errUnexpectedEOF
+	}
+	loops := make([]VADPCMLoop, count)
+	for i := range loops {
+		l := &loops[i]
+		l.Start = int(binary.BigEndian.Uint32(d))
+		l.End = int(binary.BigEndian.Uint32(d[4:]))
+		l.Count = int(binary.BigEndian.Uint32(d[8:]))
+		for i := range l.State {
+			l.State[i] = int16(binary.BigEndian.Uint16(d[12+2*i:]))
+		}
+		d = d[28:]
+	}
 	return nil
 }
 

@@ -26,7 +26,11 @@ noreturn void die_read_(const char *file, int line, FILE *fp, const char *fmt,
 #define die_read(fp, ...) die_read_(__FILE__, __LINE__, fp, __VA_ARGS__)
 
 // Malloc, but exit the program on failure.
-void *xmalloc(size_t size) __attribute__((malloc));
+void *xmalloc(size_t size) __attribute__((malloc, alloc_size(1)));
+
+// Malloc, but exit the program on failure.
+void *xcalloc(size_t nmemb, size_t size)
+    __attribute__((malloc, alloc_size(1, 2)));
 
 inline uint16_t swap16(uint16_t x) {
     return __builtin_bswap16(x);
