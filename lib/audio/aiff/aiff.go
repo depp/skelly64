@@ -454,12 +454,35 @@ func (c *VADPCMCodes) parseAPPL(data []byte) error {
 
 // =============================================================================
 
+// VADPCMLoopSize is the size of a VADPCM loop record.
+const VADPCMLoopSize = 44
+
 // A VADPCMLoop is a loop in a VADPCM-encoded file.
 type VADPCMLoop struct {
 	Start int
 	End   int
 	Count int
 	State [16]int16
+}
+
+// Marshal writes the loop to the given buffer.
+func (l *VADPCMLoop) Marshal(d []byte) {
+	binary.BigEndian.PutUint32(d, uint32(l.Start))
+	binary.BigEndian.PutUint32(d[4:], uint32(l.End))
+	binary.BigEndian.PutUint32(d[8:], uint32(l.Count))
+	for i, x := range l.State {
+		binary.BigEndian.PutUint16(d[12+2*i:], uint16(x))
+	}
+}
+
+// Unmarshal reads the loop from the given buffer.
+func (l *VADPCMLoop) Unmarshal(d []byte) {
+	l.Start = int(binary.BigEndian.Uint32(d))
+	l.End = int(binary.BigEndian.Uint32(d[4:]))
+	l.Count = int(binary.BigEndian.Uint32(d[8:]))
+	for i := range l.State {
+		l.State[i] = int16(binary.BigEndian.Uint16(d[12+2*i:]))
+	}
 }
 
 // A VADPCMLoops contains the loop information for a VADPCM-encoded file.
@@ -469,18 +492,13 @@ type VADPCMLoops struct {
 
 // ChunkData implements the Chunk interface.
 func (c *VADPCMLoops) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
-	adata := make([]byte, 4+28*len(c.Loops))
+	adata := make([]byte, 4+VADPCMLoopSize*len(c.Loops))
 	binary.BigEndian.PutUint16(adata, 1)
 	binary.BigEndian.PutUint16(adata[2:], uint16(len(c.Loops)))
 	d := adata[4:]
 	for _, l := range c.Loops {
-		binary.BigEndian.PutUint32(d, uint32(l.Start))
-		binary.BigEndian.PutUint32(d[4:], uint32(l.End))
-		binary.BigEndian.PutUint32(d[8:], uint32(l.Count))
-		for i, x := range l.State {
-			binary.BigEndian.PutUint16(d[12+2*i:], uint16(x))
-		}
-		d = d[28:]
+		l.Marshal(d)
+		d = d[VADPCMLoopSize:]
 	}
 	return writeStoc("VADPCMLOOPS", adata)
 }
@@ -499,20 +517,15 @@ func (c *VADPCMLoops) parseAPPL(data []byte) error {
 	}
 	count := int(binary.BigEndian.Uint16(data))
 	d = d[2:]
-	if len(d) < 28*count {
+	if len(d) < VADPCMLoopSize*count {
 		return errUnexpectedEOF
 	}
 	loops := make([]VADPCMLoop, count)
 	for i := range loops {
-		l := &loops[i]
-		l.Start = int(binary.BigEndian.Uint32(d))
-		l.End = int(binary.BigEndian.Uint32(d[4:]))
-		l.Count = int(binary.BigEndian.Uint32(d[8:]))
-		for i := range l.State {
-			l.State[i] = int16(binary.BigEndian.Uint16(d[12+2*i:]))
-		}
-		d = d[28:]
+		loops[i].Unmarshal(d)
+		d = d[VADPCMLoopSize:]
 	}
+	c.Loops = loops
 	return nil
 }
 

@@ -10,8 +10,8 @@ import (
 
 // A Track is an audio music track.
 type Track struct {
-	Codebook []byte // The codebook, or nil for 16-bit sounds.
-	Data     []byte // Sample data.
+	WaveTable []byte // Audio wave table data (ALWaveTable).
+	Data      []byte // Sample data.
 }
 
 func packCodebook(ck *aiff.VADPCMCodes) []byte {
@@ -24,25 +24,93 @@ func packCodebook(ck *aiff.VADPCMCodes) []byte {
 	return data
 }
 
+func pad4(d []byte) []byte {
+	var b [4]byte
+	n := (-len(d)) & 3
+	return append(d, b[:n]...)
+}
+
+type waveType byte
+
+const (
+	adpcmType waveType = 0
+	rawType
+)
+
+func waveTable(t waveType) []byte {
+	d := make([]byte, 20)
+	d[8] = byte(t)
+	return d
+}
+
+func rawWaveTable(a *aiff.AIFF) ([]byte, error) {
+	if a.Common.SampleSize != 16 {
+		return nil, fmt.Errorf("sample size is %d, but only 16 is supported", a.Common.SampleSize)
+	}
+	if a.Common.NumChannels != 1 {
+		return nil, fmt.Errorf("track has %d channels, but only one is supported", a.Common.NumChannels)
+	}
+	out := waveTable(rawType)
+	return out, nil
+}
+
+func adpcmWaveTable(a *aiff.AIFF) ([]byte, error) {
+	var loop, codebook []byte
+	for _, ck := range a.Chunks {
+		switch ck := ck.(type) {
+		case *aiff.VADPCMLoops:
+			if len(ck.Loops) > 0 {
+				if loop != nil {
+					return nil, errors.New("multiple loops")
+				}
+				loop = make([]byte, aiff.VADPCMLoopSize)
+				ck.Loops[0].Marshal(loop)
+			}
+		case *aiff.VADPCMCodes:
+			if len(codebook) != 0 {
+				return nil, errors.New("multiple codebooks")
+			}
+			codebook = packCodebook(ck)
+		}
+	}
+	if len(codebook) == 0 {
+		return nil, errors.New("ADPCM track has no codebook")
+	}
+	out := waveTable(adpcmType)
+	if loop != nil {
+		out = pad4(out)
+		binary.BigEndian.PutUint32(out[12:], uint32(len(out)))
+		out = append(out, loop...)
+	}
+	if codebook != nil {
+		out = pad4(out)
+		binary.BigEndian.PutUint32(out[16:], uint32(len(out)))
+		out = append(out, codebook...)
+	}
+	return out, nil
+}
+
 // ReadTrack reads a music track from disk.
 func ReadTrack(data []byte) (*Track, error) {
 	a, err := aiff.Parse(data)
 	if err != nil {
 		return nil, err
 	}
-	var adpcm bool
+	var tr Track
 	switch string(a.Common.Compression[:]) {
 	case "NONE":
-		if a.Common.SampleSize != 16 {
-			return nil, fmt.Errorf("sample size is %d, but only 16 is supported", a.Common.SampleSize)
-		}
-		if a.Common.NumChannels != 1 {
-			return nil, fmt.Errorf("track has %d channels, but only one is supported", a.Common.NumChannels)
+		tr.WaveTable, err = rawWaveTable(a)
+		if err != nil {
+			return nil, err
 		}
 	case "VAPC":
-		adpcm = true
+		tr.WaveTable, err = adpcmWaveTable(a)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unsupported audio sample format")
 	}
-	var tr Track
 	for _, ck := range a.Chunks {
 		switch ck := ck.(type) {
 		case *aiff.SoundData:
@@ -53,18 +121,7 @@ func ReadTrack(data []byte) (*Track, error) {
 				return nil, errors.New("multiple sound data chunks")
 			}
 			tr.Data = ck.Data
-		case *aiff.VADPCMCodes:
-			if len(tr.Codebook) != 0 {
-				return nil, errors.New("multiple codebooks")
-			}
-			if !adpcm {
-				return nil, errors.New("unexpected codebook")
-			}
-			tr.Codebook = packCodebook(ck)
 		}
-	}
-	if adpcm && len(tr.Codebook) == 0 {
-		return nil, errors.New("ADPCM track has no codebook")
 	}
 	return &tr, nil
 }
