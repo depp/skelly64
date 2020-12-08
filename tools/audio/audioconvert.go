@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"strings"
 
 	"thornmarked/tools/audio/aiff"
+	"thornmarked/tools/audio/metadata"
 	"thornmarked/tools/getpath"
 )
 
@@ -70,28 +70,6 @@ func getArgs() (o options, err error) {
 		o.sox = "sox"
 	}
 	return o, nil
-}
-
-type metadata struct {
-	LoopLength *float64 `json:"loopLength"`
-}
-
-// readMetadata reads the metadata JSON file.
-func readMetadata(opts *options) (md metadata, err error) {
-	if opts.metadata == "" {
-		return md, nil
-	}
-	fp, err := os.Open(opts.metadata)
-	if err != nil {
-		return md, fmt.Errorf("could not read metadata: %v", err)
-	}
-	defer fp.Close()
-	dec := json.NewDecoder(fp)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&md); err != nil {
-		return md, fmt.Errorf("could not parse metadata file %q: %v", opts.metadata, err)
-	}
-	return md, nil
 }
 
 // pcmdata contais 16-bit mono PCM.
@@ -175,7 +153,7 @@ func alignSample(n int) int {
 
 // makeLoop returns a seamless loop from the given PCM data according to the
 // metadata.
-func (pcm *pcmdata) makeLoop(md *metadata) error {
+func (pcm *pcmdata) makeLoop(md *metadata.Metadata) error {
 	if md.LoopLength == nil {
 		return nil
 	}
@@ -257,14 +235,21 @@ func mainE() error {
 		return err
 	}
 
-	md, err := readMetadata(&opts)
-	if err != nil {
-		return err
+	var md metadata.Metadata
+	if opts.metadata != "" {
+		md, err = metadata.Read(opts.metadata)
+		if err != nil {
+			return err
+		}
 	}
 
 	pcm, err := readPCM(&opts)
 	if err != nil {
 		return err
+	}
+
+	if pos := int(math.Round(md.LeadIn * float64(opts.rate))); pos != 0 {
+		pcm.addMarker(pos, "LeadIn")
 	}
 
 	if err := pcm.makeLoop(&md); err != nil {

@@ -53,7 +53,7 @@ func parseData(objects [][]byte, dtype datatype, data []byte) error {
 		if err != nil {
 			return err
 		}
-		objects[0] = tr.WaveTable
+		objects[0] = tr.Header
 		objects[1] = tr.Data
 		return nil
 	case typeModel:

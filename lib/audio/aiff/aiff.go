@@ -202,20 +202,20 @@ type Markers struct {
 
 func (c *Markers) parseChunk(data []byte, _ bool) error {
 	count := int(binary.BigEndian.Uint16(data))
-	markers := make([]Marker, count)
+	c.Markers = make([]Marker, count)
 	d := data[2:]
-	for i := range markers {
+	for i := range c.Markers {
 		if len(d) < 6 {
 			return errUnexpectedEOF
 		}
 		id := int(binary.BigEndian.Uint16(d))
 		pos := int(binary.BigEndian.Uint32(d[2:]))
 		n := int(d[6])
-		sz := 7 + n + (n & 1)
+		sz := (7 + n + +1) &^ 1
 		if len(d) < sz {
 			return errUnexpectedEOF
 		}
-		markers[i] = Marker{
+		c.Markers[i] = Marker{
 			ID:       id,
 			Position: pos,
 			Name:     string(d[7 : 7+n]),

@@ -10,8 +10,8 @@ import (
 
 // A Track is an audio music track.
 type Track struct {
-	WaveTable []byte // Audio wave table data (ALWaveTable).
-	Data      []byte // Sample data.
+	Header []byte // Audio header data (struct audio_header).
+	Data   []byte // Sample data.
 }
 
 func packCodebook(ck *aiff.VADPCMCodes) []byte {
@@ -37,24 +37,25 @@ const (
 	rawType
 )
 
-func waveTable(t waveType) []byte {
-	d := make([]byte, 20)
+func baseHeader(t waveType) []byte {
+	d := make([]byte, 28)
 	d[8] = byte(t)
 	return d
 }
 
-func rawWaveTable(a *aiff.AIFF) ([]byte, error) {
+func rawHeader(a *aiff.AIFF) ([]byte, error) {
 	if a.Common.SampleSize != 16 {
 		return nil, fmt.Errorf("sample size is %d, but only 16 is supported", a.Common.SampleSize)
 	}
 	if a.Common.NumChannels != 1 {
 		return nil, fmt.Errorf("track has %d channels, but only one is supported", a.Common.NumChannels)
 	}
-	out := waveTable(rawType)
+	out := baseHeader(rawType)
 	return out, nil
 }
 
-func adpcmWaveTable(a *aiff.AIFF) ([]byte, error) {
+func adpcmHeader(a *aiff.AIFF) ([]byte, error) {
+	out := baseHeader(adpcmType)
 	var loop, codebook []byte
 	for _, ck := range a.Chunks {
 		switch ck := ck.(type) {
@@ -64,7 +65,9 @@ func adpcmWaveTable(a *aiff.AIFF) ([]byte, error) {
 					return nil, errors.New("multiple loops")
 				}
 				loop = make([]byte, aiff.VADPCMLoopSize)
-				ck.Loops[0].Marshal(loop)
+				l := ck.Loops[0]
+				l.Marshal(loop)
+				binary.BigEndian.PutUint32(out[4:], uint32(l.End-l.Start))
 			}
 		case *aiff.VADPCMCodes:
 			if len(codebook) != 0 {
@@ -76,15 +79,14 @@ func adpcmWaveTable(a *aiff.AIFF) ([]byte, error) {
 	if len(codebook) == 0 {
 		return nil, errors.New("ADPCM track has no codebook")
 	}
-	out := waveTable(adpcmType)
 	if loop != nil {
 		out = pad4(out)
-		binary.BigEndian.PutUint32(out[12:], uint32(len(out)))
+		binary.BigEndian.PutUint32(out[20:], uint32(len(out)))
 		out = append(out, loop...)
 	}
 	if codebook != nil {
 		out = pad4(out)
-		binary.BigEndian.PutUint32(out[16:], uint32(len(out)))
+		binary.BigEndian.PutUint32(out[24:], uint32(len(out)))
 		out = append(out, codebook...)
 	}
 	return out, nil
@@ -99,12 +101,12 @@ func ReadTrack(data []byte) (*Track, error) {
 	var tr Track
 	switch string(a.Common.Compression[:]) {
 	case "NONE":
-		tr.WaveTable, err = rawWaveTable(a)
+		tr.Header, err = rawHeader(a)
 		if err != nil {
 			return nil, err
 		}
 	case "VAPC":
-		tr.WaveTable, err = adpcmWaveTable(a)
+		tr.Header, err = adpcmHeader(a)
 		if err != nil {
 			return nil, err
 		}
@@ -121,6 +123,13 @@ func ReadTrack(data []byte) (*Track, error) {
 				return nil, errors.New("multiple sound data chunks")
 			}
 			tr.Data = ck.Data
+		case *aiff.Markers:
+			for _, m := range ck.Markers {
+				switch m.Name {
+				case "LeadIn":
+					binary.BigEndian.PutUint32(tr.Header, uint32(m.Position))
+				}
+			}
 		}
 	}
 	return &tr, nil
