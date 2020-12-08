@@ -24,6 +24,8 @@ type options struct {
 	metadata string
 	output   string
 	rate     int
+	flac     string
+	sox      string
 }
 
 func getArgs() (o options, err error) {
@@ -31,6 +33,8 @@ func getArgs() (o options, err error) {
 	flag.StringVar(&o.metadata, "metadata", "", "input metadata JSON file")
 	flag.StringVar(&o.output, "output", "", "output audio file")
 	flag.IntVar(&o.rate, "rate", 0, "audio sample rate")
+	flag.StringVar(&o.flac, "flac", "", "flac executable")
+	flag.StringVar(&o.sox, "sox", "", "sox executable")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argumen: %q", args[0])
@@ -48,6 +52,22 @@ func getArgs() (o options, err error) {
 	o.output = getpath.GetPath(o.output)
 	if o.rate == 0 {
 		return o, errors.New("missing required flag -rate")
+	}
+	if o.flac != "" {
+		o.flac, err = filepath.Abs(o.flac)
+		if err != nil {
+			return o, err
+		}
+	} else {
+		o.flac = "flac"
+	}
+	if o.sox != "" {
+		o.sox, err = filepath.Abs(o.sox)
+		if err != nil {
+			return o, err
+		}
+	} else {
+		o.sox = "sox"
 	}
 	return o, nil
 }
@@ -88,7 +108,7 @@ func readPCM(opts *options) ([]int16, error) {
 			wav.Close()
 			os.Remove(wav.Name())
 		}()
-		cmd := exec.Command("flac", "--decode", "--stdout", "--silent", opts.input)
+		cmd := exec.Command(opts.flac, "--decode", "--stdout", "--silent", opts.input)
 		cmd.Stdout = wav
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
@@ -99,7 +119,7 @@ func readPCM(opts *options) ([]int16, error) {
 
 	// Convert to the right format and rate.
 	cmd := exec.Command(
-		"sox",
+		opts.sox,
 		pcmfile,
 		"--bits", "16",
 		"--channels", "1",
@@ -109,6 +129,9 @@ func readPCM(opts *options) ([]int16, error) {
 		"--endian", "little",
 		"-",
 	)
+	if opts.sox != "" {
+		cmd.Path = opts.sox
+	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
