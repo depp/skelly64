@@ -7,6 +7,9 @@ import (
 	"fmt"
 )
 
+// StardardVersion is the recognized AIFF-C version number.
+const StandardVersion = 0xA2805140
+
 // An AIFF is a decoded AIFF or AIFF-C file.
 type AIFF struct {
 	Common        Common
@@ -397,7 +400,7 @@ func (a *AIFF) Write(compressed bool) ([]byte, error) {
 		var id [4]byte
 		copy(id[:], "FVER")
 		var data [4]byte
-		binary.BigEndian.PutUint32(data[:], 0xA2805140)
+		binary.BigEndian.PutUint32(data[:], StandardVersion)
 		rchunks = append(rchunks, RawChunk{id, data[:]})
 	}
 	for _, ck := range a.Chunks {

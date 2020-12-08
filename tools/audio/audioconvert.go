@@ -1,89 +1,210 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 
+	"thornmarked/tools/audio/aiff"
 	"thornmarked/tools/getpath"
 )
 
-func mainE() error {
-	// Parse flags.
-	inFlag := flag.String("input", "", "input audio file")
-	outFlag := flag.String("output", "", "output asset")
-	rateFlag := flag.Int("rate", 0, "audio sample rate")
-	flag.Parse()
-	if args := flag.Args(); len(args) > 0 {
-		return fmt.Errorf("unexpected argument: %q", args[0])
-	}
-	inpath := getpath.GetPath(*inFlag)
-	if inpath == "" {
-		return errors.New("missing -input flag")
-	}
-	outpath := getpath.GetPath(*outFlag)
-	if outpath == "" {
-		return errors.New("missing -output flag")
-	}
-	rate := *rateFlag
-	if rate == 0 {
-		return errors.New("missing -rate flag")
-	}
+type options struct {
+	input    string
+	metadata string
+	output   string
+	rate     int
+}
 
-	// Get the input as a PCM file.
-	pcmfile := inpath
-	switch ext := filepath.Ext(inpath); ext {
-	case ".flac":
-		fp, err := ioutil.TempFile(filepath.Dir(outpath), "audioconvert.*.wav")
+func getArgs() (o options, err error) {
+	flag.StringVar(&o.input, "input", "", "input audio file")
+	flag.StringVar(&o.metadata, "metadata", "", "input metadata JSON file")
+	flag.StringVar(&o.output, "output", "", "output audio file")
+	flag.IntVar(&o.rate, "rate", 0, "audio sample rate")
+	flag.Parse()
+	if args := flag.Args(); len(args) != 0 {
+		return o, fmt.Errorf("unexpected argumen: %q", args[0])
+	}
+	if o.input == "" {
+		return o, errors.New("missing required flag -input")
+	}
+	o.input = getpath.GetPath(o.input)
+	if o.metadata != "" {
+		o.metadata = getpath.GetPath(o.metadata)
+	}
+	if o.output == "" {
+		return o, errors.New("missing required flag -output")
+	}
+	o.output = getpath.GetPath(o.output)
+	if o.rate == 0 {
+		return o, errors.New("missing required flag -rate")
+	}
+	return o, nil
+}
+
+type metadata struct {
+	LoopLength *float64 `json:"loopLength"`
+}
+
+// readMetadata reads the metadata JSON file.
+func readMetadata(opts *options) (md metadata, err error) {
+	if opts.metadata == "" {
+		return md, nil
+	}
+	fp, err := os.Open(opts.metadata)
+	if err != nil {
+		return md, fmt.Errorf("could not read metadata: %v", err)
+	}
+	defer fp.Close()
+	dec := json.NewDecoder(fp)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&md); err != nil {
+		return md, fmt.Errorf("could not parse metadata file %q: %v", opts.metadata, err)
+	}
+	return md, nil
+}
+
+// readPCM reads the input as 16-bit mono PCM.
+func readPCM(opts *options) ([]int16, error) {
+	pcmfile := opts.input
+
+	// Decode FLAC.
+	if strings.HasSuffix(opts.input, ".flac") {
+		wav, err := ioutil.TempFile(filepath.Dir(opts.output), "audioconvert.*.wav")
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer func() {
-			fp.Close()
-			os.Remove(fp.Name())
+			wav.Close()
+			os.Remove(wav.Name())
 		}()
-		pcmfile = fp.Name()
-		cmd := exec.Command("flac", "--decode", "--stdout", "--silent", inpath)
-		cmd.Stdout = fp
+		cmd := exec.Command("flac", "--decode", "--stdout", "--silent", opts.input)
+		cmd.Stdout = wav
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("could not decode FLAC: %w", err)
+			return nil, fmt.Errorf("could not decode FLAC: %w", err)
 		}
-		fp.Close()
-	case ".wav", ".aif", ".aiff":
-	default:
-		return fmt.Errorf("input file has unknown extension: %q", ext)
+		pcmfile = wav.Name()
 	}
 
 	// Convert to the right format and rate.
 	cmd := exec.Command(
-		"sox", pcmfile,
+		"sox",
+		pcmfile,
 		"--bits", "16",
 		"--channels", "1",
-		"--rate", strconv.Itoa(rate),
+		"--rate", strconv.Itoa(opts.rate),
 		"--encoding", "signed-integer",
 		"--type", "raw",
-		"--endian", "big",
+		"--endian", "little",
 		"-",
 	)
-	fp, err := os.Create(outpath)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("could not convert audio format: %w", err)
+	}
+	raw := buf.Bytes()
+	r := make([]int16, len(raw)/2)
+	for i := range r {
+		r[i] = int16(binary.LittleEndian.Uint16(raw[i*2:]))
+	}
+	return r, nil
+}
+
+func alignSample(n int) int {
+	return (n + 3) &^ 7
+}
+
+// makeLoop returns a seamless loop from the given PCM data according to the
+// metadata.
+func makeLoop(opts *options, md *metadata, pcm []int16) ([]int16, error) {
+	if md.LoopLength == nil {
+		return pcm, nil
+	}
+	looplen := alignSample(int(math.Round(*md.LoopLength * float64(opts.rate))))
+	extra := len(pcm) - looplen
+	if extra < 0 {
+		return nil, fmt.Errorf(
+			"loop is longer than audio (loop = %f s, %d samples; audio = %f s, %d samples)",
+			float64(looplen)/float64(opts.rate), looplen,
+			float64(len(pcm))/float64(opts.rate), len(pcm))
+	}
+	if extra > len(pcm) {
+		return nil, fmt.Errorf(
+			"loop is shorter than half of audio (loop = %f s, %d samples; audio = %f s, %d samples)",
+			float64(looplen)/float64(opts.rate), looplen,
+			float64(len(pcm))/float64(opts.rate), len(pcm))
+	}
+	totallen := alignSample(len(pcm) + extra)
+	out := make([]int16, totallen)
+	copy(out[looplen:], pcm)
+	for i, x := range pcm {
+		out[i] += x
+	}
+	return out, nil
+}
+
+// writePCM writes the output as an AIFF-C file.
+func writePCM(opts *options, pcm []int16) error {
+	data := make([]byte, 2*len(pcm))
+	for i, x := range pcm {
+		binary.BigEndian.PutUint16(data[i*2:], uint16(x))
+	}
+	a := aiff.AIFF{
+		Common: aiff.Common{
+			NumChannels:     1,
+			NumFrames:       len(pcm),
+			SampleSize:      16,
+			SampleRate:      aiff.Float80(float64(opts.rate)),
+			Compression:     [4]byte{'N', 'O', 'N', 'E'},
+			CompressionName: "no compression",
+		},
+		Data: &aiff.SoundData{
+			Data: data,
+		},
+	}
+	a.Chunks = []aiff.Chunk{&a.Common, a.Data}
+	fdata, err := a.Write(true)
+	if err != nil {
+		return fmt.Errorf("could not create AIFF-C data: %v", err)
+	}
+	return ioutil.WriteFile(opts.output, fdata, 0666)
+}
+
+func mainE() error {
+	opts, err := getArgs()
 	if err != nil {
 		return err
 	}
-	defer fp.Close()
-	cmd.Stdout = fp
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("could not read WAV file: %w", err)
-	}
-	fp.Close()
 
-	return nil
+	md, err := readMetadata(&opts)
+	if err != nil {
+		return err
+	}
+
+	pcm, err := readPCM(&opts)
+	if err != nil {
+		return err
+	}
+
+	pcm, err = makeLoop(&opts, &md, pcm)
+	if err != nil {
+		return err
+	}
+
+	return writePCM(&opts, pcm)
 }
 
 func main() {

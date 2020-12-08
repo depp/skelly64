@@ -4,6 +4,7 @@ go_library(
     name = "aiff",
     srcs = [
         "aiff.go",
+        "extended.go",
     ],
     importpath = "thornmarked/tools/audio/aiff",
     visibility = ["//tools:__subpackages__"],
