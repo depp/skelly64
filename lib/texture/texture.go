@@ -211,6 +211,10 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA, dithering Dithering) error {
 					}
 				}
 			case FloydSteinberg:
+				var mul int32
+				for i := int32(1 << 16); i > 0; i >>= nbits {
+					mul |= i
+				}
 				for y := 0; y < sy; y++ {
 					// Current and next row error.
 					idx := y & 1
@@ -218,14 +222,16 @@ func ToSizedFormat(f SizedFormat, im *image.RGBA, dithering Dithering) error {
 					next := errData[errSize*(idx^1) : errSize*((idx^1)+1)]
 					next[1] = 0
 					for x := 0; x < sx; x++ {
-						v := (int32(pix[y*ss+x*4+c]) << nbits) + cur[x+1]
+						v := (int32(pix[y*ss+x*4+c]) << nbits)
+						v |= v >> 8
+						v += cur[x+1]
 						w := v >> 8
 						if w < 0 {
 							w = 0
 						} else if w > max {
 							w = max
 						}
-						d := v - (w << 8) - 0x80
+						d := v - ((w * mul) >> 8)
 						// panic("d = " + strconv.Itoa(int(d)))
 						cur[x+2] += (d * 7) >> 4
 						next[x] += (d * 3) >> 4
