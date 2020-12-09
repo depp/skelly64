@@ -45,6 +45,15 @@ func parseData(objects [][]byte, dtype datatype, data []byte) error {
 		}
 		objects[0] = data[16:]
 		return nil
+	case typeImage:
+		if len(objects) != 1 {
+			panic("wrong object length")
+		}
+		if err := checkMagic(data, "StripImage", 16); err != nil {
+			return err
+		}
+		objects[0] = data[16:]
+		return nil
 	case typeTrack:
 		if len(objects) != 2 {
 			panic("wrong object length")

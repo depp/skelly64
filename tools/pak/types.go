@@ -12,6 +12,7 @@ const (
 	typeUnknown datatype = iota
 	typeData
 	typeFont
+	typeImage
 	typeTrack
 	typeModel
 	typeTexture
@@ -25,6 +26,7 @@ type typeinfo struct {
 var types = [...]typeinfo{
 	typeData:    {"data", 1},
 	typeFont:    {"font", 1},
+	typeImage:   {"image", 1},
 	typeModel:   {"model", 2},
 	typeTexture: {"texture", 1},
 	typeTrack:   {"track", 2},
