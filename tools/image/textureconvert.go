@@ -40,6 +40,7 @@ type options struct {
 	format    texture.SizedFormat
 	layout    texture.Layout
 	mipmap    bool
+	strips    bool
 	dithering texture.Dithering
 }
 
@@ -48,6 +49,7 @@ func parseArgs() (opts options, err error) {
 	input := flag.String("input", "", "read input texture")
 	native := flag.Bool("native", false, "use native TMEM texture layout")
 	flag.BoolVar(&opts.mipmap, "mipmap", false, "generate mipmaps")
+	flag.BoolVar(&opts.strips, "strips", false, "convert to strips that fit in TMEM")
 	flag.Var(&opts.format, "format", "use texture format `fmt.size` (e.g. rgba.16)")
 	dither := flag.String("dither", "", "use dithering algorithm (none, bayer, floyd-steinberg)")
 	flag.Parse()
@@ -78,6 +80,41 @@ func parseArgs() (opts options, err error) {
 	return opts, nil
 }
 
+func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
+	// Create image tiles at sizes that fit in TMEM.
+	i16 := texture.ToRGBA16(img)
+	i16, err := texture.AutoScale(i16, tmemSize, opts.format.Size.Size(), opts.mipmap)
+	if err != nil {
+		return nil, fmt.Errorf("could not scarle texture: %v", err)
+	}
+	var tiles []*image.RGBA64
+	if opts.mipmap {
+		tiles, err = texture.CreateMipMaps(i16)
+		if err != nil {
+			return nil, fmt.Errorf("could not create mipmaps: %v", err)
+		}
+	} else {
+		tiles = []*image.RGBA64{i16}
+	}
+
+	// Convert texture to desired format and pack into contiguous block.
+	data := make([]byte, 16)
+	copy(data, "Texture")
+	for _, tile := range tiles {
+		img := texture.ToRGBA8(tile)
+		if err := texture.ToSizedFormat(opts.format, img, opts.dithering); err != nil {
+			return nil, fmt.Errorf("could not convert to %s: %v", opts.format, err)
+		}
+		tdata, err := texture.Pack(img, opts.format, opts.layout)
+		if err != nil {
+			return nil, fmt.Errorf("could not pack texture: %v", err)
+		}
+		data = append(data, tdata...)
+	}
+
+	return data, nil
+}
+
 func mainE() error {
 	opts, err := parseArgs()
 	if err != nil {
@@ -91,35 +128,15 @@ func mainE() error {
 	}
 	img := texture.ToRGBA(inimg)
 
-	// Create image tiles at sizes that fit in TMEM.
-	i16 := texture.ToRGBA16(img)
-	i16, err = texture.AutoScale(i16, tmemSize, opts.format.Size.Size(), opts.mipmap)
+	var data []byte
+	switch {
+	case opts.strips:
+		data, err = makeStrips(&opts, img)
+	default:
+		data, err = makeTexture(&opts, img)
+	}
 	if err != nil {
-		return fmt.Errorf("could not scarle texture: %v", err)
-	}
-	var tiles []*image.RGBA64
-	if opts.mipmap {
-		tiles, err = texture.CreateMipMaps(i16)
-		if err != nil {
-			return fmt.Errorf("could not create mipmaps: %v", err)
-		}
-	} else {
-		tiles = []*image.RGBA64{i16}
-	}
-
-	// Convert texture to desired format and pack into contiguous block.
-	data := make([]byte, 16)
-	copy(data, "Texture")
-	for _, tile := range tiles {
-		img := texture.ToRGBA8(tile)
-		if err := texture.ToSizedFormat(opts.format, img, opts.dithering); err != nil {
-			return fmt.Errorf("could not convert to %s: %v", opts.format, err)
-		}
-		tdata, err := texture.Pack(img, opts.format, opts.layout)
-		if err != nil {
-			return fmt.Errorf("could not pack texture: %v", err)
-		}
-		data = append(data, tdata...)
+		return err
 	}
 
 	if err := ioutil.WriteFile(opts.output, data, 0666); err != nil {
