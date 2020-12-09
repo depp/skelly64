@@ -155,7 +155,7 @@ func makeStrips(opts *options, img *image.RGBA) ([]byte, error) {
 		e.PutUint16(rd[6:], uint16(r.Dy()))
 		e.PutUint32(rd[8:], uint32(loc.pos))
 		td, err := texture.Pack(
-			img.SubImage(r).(*image.RGBA), opts.format, texture.Linear)
+			img.SubImage(r).(*image.RGBA), opts.format, texture.Native)
 		if err != nil {
 			return nil, fmt.Errorf("could not pack strip: %v", err)
 		}
