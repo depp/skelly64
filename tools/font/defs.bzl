@@ -11,6 +11,8 @@ def _bitmap_font_impl(ctx):
         args.append("-shadow=" + ctx.attr.shadow)
     if ctx.attr.encoding:
         args.append("-encoding=" + ctx.attr.encoding)
+    if ctx.attr.case:
+        args.append("-case=" + ctx.attr.case)
     src = ctx.file.src
     out_dat = ctx.actions.declare_file(ctx.label.name + ".font")
     out_tex = ctx.actions.declare_file(ctx.label.name + ".png")
@@ -49,6 +51,7 @@ bitmap_font = rule(
         ),
         "encoding": attr.string(),
         "shadow": attr.string(),
+        "case": attr.string(),
         "_converter": attr.label(
             default = Label("//tools/font"),
             allow_single_file = True,

@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/htmlindex"
@@ -481,6 +482,14 @@ func writeImage(im image.Image, dest string) error {
 	return fp.Close()
 }
 
+type caseTransform uint32
+
+const (
+	casePreserve caseTransform = iota
+	caseLower
+	caseUpper
+)
+
 type options struct {
 	font         string
 	size         int
@@ -491,6 +500,7 @@ type options struct {
 	texfmt       texture.SizedFormat
 	charset      charset.Set
 	encoding     *charmap.Charmap
+	charCase     caseTransform
 	removeNotdef bool
 	mono         bool
 	fallbackfile string
@@ -562,6 +572,7 @@ func parseOpts() (o options, err error) {
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
 	charsetArg := flag.String("charset", "", "path to character set file")
 	encodingArg := flag.String("encoding", "", "name of character encoding to use")
+	caseArg := flag.String("case", "", "transform case to lower or upper")
 	removeNotdefArg := flag.Bool("remove-notdef", false, "remove the .notdef glyph")
 	outDataArg := flag.String("out-data", "", "output font data file")
 	flag.Var(&o.texfmt, "format", "use `format.size` texture format")
@@ -620,6 +631,16 @@ func parseOpts() (o options, err error) {
 		}
 		o.encoding = cm
 	}
+	switch strings.ToLower(*caseArg) {
+	case "", "both":
+		o.charCase = casePreserve
+	case "lower":
+		o.charCase = caseLower
+	case "upper":
+		o.charCase = caseUpper
+	default:
+		return o, fmt.Errorf("unknown value for case, should be lower, upper, or both: %q", *caseArg)
+	}
 	o.removeNotdef = *removeNotdefArg
 	o.fallbackfile = getpath.GetPath(*outFallbackArg)
 	if *shadowArg != "" {
@@ -642,6 +663,20 @@ func mainE() error {
 	}
 	if opts.charset != nil {
 		fn.subset(opts.charset)
+	}
+	switch opts.charCase {
+	case caseLower:
+		cm := make(map[uint32]uint32, len(fn.charmap))
+		for c := range fn.charmap {
+			cm[c] = fn.charmap[uint32(unicode.ToLower(rune(c)))]
+		}
+		fn.charmap = cm
+	case caseUpper:
+		cm := make(map[uint32]uint32, len(fn.charmap))
+		for c := range fn.charmap {
+			cm[c] = fn.charmap[uint32(unicode.ToUpper(rune(c)))]
+		}
+		fn.charmap = cm
 	}
 	if opts.encoding != nil {
 		fn.encode(opts.encoding)
