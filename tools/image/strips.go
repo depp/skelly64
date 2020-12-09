@@ -35,12 +35,6 @@ func rowSpans(img *image.RGBA) []rowSpan {
 	return spans
 }
 
-func rectBytes(r image.Rectangle, size int) int {
-	// Size is in bits, convert to bytes, pad to 64-bit boundaries.
-	stride := ((r.Dx()*size + 63) &^ 63) >> 3
-	return stride * r.Dy()
-}
-
 func makeStripRects1(spans []rowSpan, size int) ([]image.Rectangle, error) {
 	const limit = tmemSize
 	var rs []image.Rectangle
@@ -49,7 +43,7 @@ func makeStripRects1(spans []rowSpan, size int) ([]image.Rectangle, error) {
 			Min: image.Point{X: spans[y].start, Y: y},
 			Max: image.Point{X: spans[y].end, Y: y + 1},
 		}
-		rsize := rectBytes(r, size)
+		rsize := texture.TileSize(r.Dx(), r.Dy(), size)
 		if rsize > limit {
 			return nil, fmt.Errorf(
 				"image too wide, width=%d, bytes=%d, maxbytes=%d",
@@ -65,7 +59,7 @@ func makeStripRects1(spans []rowSpan, size int) ([]image.Rectangle, error) {
 				r2.Max.X = s.end
 			}
 			r2.Max.Y++
-			if rectBytes(r2, size) > limit {
+			if texture.TileSize(r2.Dx(), r2.Dy(), size) > limit {
 				break
 			}
 			r = r2
@@ -142,7 +136,7 @@ func makeStrips(opts *options, img *image.RGBA) ([]byte, error) {
 	locs := make([]loc, len(strips))
 	for i, r := range strips {
 		pos = (pos + 7) &^ 7
-		size := ((r.Dx()*psize + 7) >> 3) * r.Dy()
+		size := texture.TileSize(r.Dx(), r.Dy(), psize)
 		locs[i] = loc{pos: pos, size: size}
 		pos += size
 	}

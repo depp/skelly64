@@ -81,7 +81,9 @@ func CreateMipMaps(im *image.RGBA64) ([]*image.RGBA64, error) {
 	return append(tiles, im), nil
 }
 
-func tileSize(xsize, ysize, bits int) int {
+// TileSize returns the number of bytes used by a tile with the given
+// dimensions.
+func TileSize(xsize, ysize, bits int) int {
 	stride := ((xsize * bits >> 3) + 7) &^ 7
 	return stride * ysize
 }
@@ -89,7 +91,7 @@ func tileSize(xsize, ysize, bits int) int {
 func mipmapSize(xsize, ysize, bits int) int {
 	var bytes int
 	for xsize > 1 || ysize > 1 {
-		bytes += tileSize(xsize, ysize, bits)
+		bytes += TileSize(xsize, ysize, bits)
 		if xsize > 1 {
 			xsize >>= 1
 		}
@@ -97,7 +99,7 @@ func mipmapSize(xsize, ysize, bits int) int {
 			ysize >>= 1
 		}
 	}
-	bytes += tileSize(1, 1, bits)
+	bytes += TileSize(1, 1, bits)
 	return bytes
 }
 
@@ -113,7 +115,7 @@ func AutoScale(im *image.RGBA64, maxbytes, bits int, mipmap bool) (*image.RGBA64
 		if mipmap {
 			bytes = mipmapSize(xsize, ysize, bits)
 		} else {
-			bytes = tileSize(xsize, ysize, bits)
+			bytes = TileSize(xsize, ysize, bits)
 		}
 		if bytes <= maxbytes {
 			return Scale(im, xscale, yscale)

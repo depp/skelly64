@@ -286,7 +286,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 			// split across the low & high banks of TMEM.
 			return nil, errors.New("native layout unsupported for 32 bpp textures")
 		}
-		ds := sx * 4
+		ds := (sx*4 + 7) &^ 7
 		r := make([]byte, sy*ds)
 		if f.Format != RGBA {
 			return nil, fmt.Errorf("invalid format: %s", f)
@@ -298,10 +298,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 		}
 		return r, nil
 	case Size16:
-		ds := sx * 2
-		if layout == Native {
-			ds = (ds + 7) &^ 7
-		}
+		ds := (sx*2 + 7) &^ 7
 		r := make([]byte, sy*ds)
 		switch f.Format {
 		case RGBA:
@@ -334,10 +331,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 		}
 		return r, nil
 	case Size8:
-		ds := sx
-		if layout == Native {
-			ds = (ds + 7) &^ 7
-		}
+		ds := (sx + 7) &^ 7
 		r := make([]byte, sy*ds)
 		switch f.Format {
 		case IA:
