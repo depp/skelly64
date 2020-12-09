@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"math"
 	"os"
 
 	"thornmarked/tools/texture"
@@ -104,6 +105,8 @@ func makeStripRects(img *image.RGBA, size int) ([]image.Rectangle, error) {
 
 // makeStrips converts an image to a strip image, for displaying large images on-screen at full-size.
 func makeStrips(opts *options, img *image.RGBA) ([]byte, error) {
+	x0 := int(math.Round(float64(img.Rect.Dx()) * opts.anchor[0]))
+	y0 := int(math.Round(float64(img.Rect.Dy()) * opts.anchor[1]))
 	if err := texture.ToSizedFormat(opts.format, img, opts.dithering); err != nil {
 		return nil, fmt.Errorf("could not convert to %s: %v", opts.format, err)
 	}
@@ -149,8 +152,8 @@ func makeStrips(opts *options, img *image.RGBA) ([]byte, error) {
 		loc := locs[i]
 		off := 4 + rsz*i
 		rd := d[off : off+rsz : off+rsz]
-		e.PutUint16(rd, uint16(r.Min.X))
-		e.PutUint16(rd[2:], uint16(r.Min.Y))
+		e.PutUint16(rd, uint16(r.Min.X-x0))
+		e.PutUint16(rd[2:], uint16(r.Min.Y-y0))
 		e.PutUint16(rd[4:], uint16(r.Dx()))
 		e.PutUint16(rd[6:], uint16(r.Dy()))
 		e.PutUint32(rd[8:], uint32(loc.pos))

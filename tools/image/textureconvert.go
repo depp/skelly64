@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"thornmarked/tools/getpath"
@@ -42,6 +43,7 @@ type options struct {
 	mipmap    bool
 	strips    bool
 	dithering texture.Dithering
+	anchor    [2]float64
 }
 
 func parseArgs() (opts options, err error) {
@@ -52,6 +54,7 @@ func parseArgs() (opts options, err error) {
 	flag.BoolVar(&opts.strips, "strips", false, "convert to strips that fit in TMEM")
 	flag.Var(&opts.format, "format", "use texture format `fmt.size` (e.g. rgba.16)")
 	dither := flag.String("dither", "", "use dithering algorithm (none, bayer, floyd-steinberg)")
+	anchor := flag.String("anchor", "", "origin of image (strips only), `x:y` range 0-1")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return opts, fmt.Errorf("unexpected argument: %q", args[0])
@@ -76,6 +79,23 @@ func parseArgs() (opts options, err error) {
 		if err != nil {
 			return opts, fmt.Errorf("invalid value for -dither: %v", err)
 		}
+	}
+	if *anchor != "" {
+		fields := strings.Split(*anchor, ":")
+		if len(fields) != 2 {
+			return opts, fmt.Errorf("invalid anchor, expected two numbers separated by ':': %q", *anchor)
+		}
+		x, err := strconv.ParseFloat(fields[0], 64)
+		if err != nil {
+			return opts, fmt.Errorf("invalid anchor: %v", err)
+		}
+		y, err := strconv.ParseFloat(fields[1], 64)
+		if err != nil {
+			return opts, fmt.Errorf("invalid anchor: %v", err)
+		}
+		opts.anchor = [2]float64{x, y}
+	} else {
+		opts.anchor = [2]float64{0.5, 0.5}
 	}
 	return opts, nil
 }
