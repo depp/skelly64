@@ -9,8 +9,8 @@
 namespace modelconvert {
 namespace gbi {
 
-DisplayList::DisplayList(unsigned cache_size)
-    : m_cache{cache_size}, m_has_tri1{false} {}
+DisplayList::DisplayList(unsigned cache_size, unsigned vertex_offset)
+    : m_cache{cache_size}, m_vertex_offset{vertex_offset}, m_has_tri1{false} {}
 
 void DisplayList::Triangle(std::array<int, 3> tri) {
     for (int i = 0; i < 3; i++) {
@@ -47,8 +47,9 @@ void DisplayList::Vertex(int offset, const std::vector<Vtx> &vertexes) {
     if (start == end) {
         return;
     }
-    m_cmds.push_back(Gfx::SPVertex(RSPAddress(m_vtx.size() * Vtx::Size),
-                                   end - start, start));
+    m_cmds.push_back(
+        Gfx::SPVertex(RSPAddress(m_vertex_offset + m_vtx.size() * Vtx::Size),
+                      end - start, start));
     int pos = start;
     for (const Vtx &v : vertexes) {
         m_cache.Set(pos, v);

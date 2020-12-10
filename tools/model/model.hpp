@@ -36,7 +36,7 @@ struct Animation {
 
 // A compiled model.
 struct Model {
-    std::vector<Gfx> command;
+    std::vector<std::vector<Gfx>> command; // Command list per material.
     std::vector<Vtx> vertex;
     std::vector<Animation> animation;
     std::vector<FrameData> frame;

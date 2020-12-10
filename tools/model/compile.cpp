@@ -66,9 +66,8 @@ void Sort3(std::array<int, 3> &arr) {
         swap(arr[0], arr[1]);
 }
 
-class Compiler {
-public:
-    Compiler(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
+struct VertexSet {
+    VertexSet(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
         if (mesh.vertex.size() > std::numeric_limits<int>::max()) {
             throw std::runtime_error("too many vertexes");
         }
@@ -77,11 +76,11 @@ public:
             return;
         }
 
-        m_vertex.resize(nvert);
+        vertex.resize(nvert);
         const std::vector<std::array<int16_t, 3>> &vertexpos =
             mesh.animation_frame.at(0);
         for (int i = 0; i < nvert; i++) {
-            VState &v = m_vertex.at(i);
+            VState &v = vertex.at(i);
             v.vertex.pos = vertexpos.at(i);
             const VertexAttr &vv = mesh.vertex.at(i);
             v.vertex.pad = 0;
@@ -98,12 +97,6 @@ public:
             }
             v.tri_count = 0;
             v.group_id = -1;
-        }
-        m_triangle = mesh.triangle;
-        for (const Triangle &tri : m_triangle) {
-            for (const int idx : tri.vertex) {
-                m_vertex.at(idx).tri_count++;
-            }
         }
 
         // Sort vertexes.
@@ -138,33 +131,57 @@ public:
                 }
             }
         }
-
         // Assign each vertex to a group.
         {
-            int group_id = -1;
+            int gcount = 0;
             for (int i = 0; i < nvert; i++) {
                 VOrder &v = vorder.at(i);
                 if (!v.same) {
-                    group_id = m_group.size();
-                    GState group{};
-                    group.current_attr = -1;
-                    m_group.push_back(group);
+                    gcount++;
                 }
-                VState &vv = m_vertex.at(v.index);
-                vv.group_id = group_id;
-                GState &g = m_group.back();
-                g.tri_count += vv.tri_count;
+                VState &vv = vertex.at(v.index);
+                vv.group_id = gcount - 1;
             }
+            group_count = gcount;
         }
 
         if (stats) {
             fmt::print(stats, "    Raw vertex count: {}\n", nvert);
-            fmt::print(stats, "    Unique vertex positions: {}\n",
-                       m_group.size());
+            fmt::print(stats, "    Unique vertex positions: {}\n", group_count);
         }
     }
 
-    void Emit(DisplayList *dl, std::FILE *stats) {
+    std::vector<VState> vertex;
+    int group_count;
+};
+
+class Compiler {
+public:
+    Compiler(const VertexSet &vert, const Mesh &mesh, int material)
+        : m_vertex{vert.vertex} {
+        for (VState &v : m_vertex) {
+            v.tri_count = 0;
+        }
+        for (const Triangle &tri : mesh.triangle) {
+            if (tri.material == material) {
+                m_triangle.push_back(tri);
+                for (const int idx : tri.vertex) {
+                    m_vertex.at(idx).tri_count++;
+                }
+            }
+        }
+        {
+            GState g{};
+            g.current_attr = -1;
+            m_group.resize(vert.group_count, g);
+        }
+        for (const VState &v : m_vertex) {
+            m_group.at(v.group_id).tri_count += v.tri_count;
+        }
+    }
+
+    void Emit(DisplayList *dl, std::vector<int> *dl_vertex_id,
+              std::FILE *stats) {
         // For each batch.
         while (!m_triangle.empty()) {
             StartBatch(dl);
@@ -186,44 +203,8 @@ public:
                        static_cast<double>(m_total_vtx) /
                            static_cast<double>(m_group.size()));
         }
-    }
-
-    void EmitAnimations(Model *model, const Mesh &mesh) const {
-        if (m_dl_vertex.size() != model->vertex.size()) {
-            // Assertion.
-            throw std::runtime_error("vertex size mismatch");
-        }
-        std::unordered_map<int, int> frame_map;
-        for (const auto &aptr : mesh.animation) {
-            Animation anim{};
-            if (aptr) {
-                const modelconvert::Animation &mesh_anim = *aptr;
-                anim.duration = mesh_anim.duration;
-                for (const auto &mesh_anim_frame : mesh_anim.frame) {
-                    int index;
-                    auto lookup = frame_map.find(mesh_anim_frame.data_index);
-                    if (lookup != frame_map.end()) {
-                        index = lookup->second;
-                    } else {
-                        const std::vector<std::array<int16_t, 3>> &frame =
-                            mesh.animation_frame.at(mesh_anim_frame.data_index);
-                        FrameData fdata{};
-                        fdata.pos.reserve(m_dl_vertex.size());
-                        for (const int vertex_id : m_dl_vertex) {
-                            fdata.pos.push_back(
-                                FrameVertex{frame.at(vertex_id), 0});
-                        }
-                        index = model->frame.size();
-                        model->frame.push_back(std::move(fdata));
-                    }
-                    AnimationFrame anim_frame{};
-                    anim_frame.time = mesh_anim_frame.time;
-                    anim_frame.index = index;
-                    anim.frame.push_back(anim_frame);
-                }
-            }
-            model->animation.push_back(std::move(anim));
-        }
+        dl_vertex_id->insert(dl_vertex_id->end(), std::begin(m_dl_vertex),
+                             std::end(m_dl_vertex));
     }
 
 private:
@@ -437,21 +418,69 @@ private:
     std::vector<int> m_dl_vertex;
 };
 
+void EmitAnimations(Model *model, const Mesh &mesh,
+                    const std::vector<int> dl_vertex_id) {
+    if (dl_vertex_id.size() != model->vertex.size()) {
+        // Assertion.
+        throw std::runtime_error("vertex size mismatch");
+    }
+    std::unordered_map<int, int> frame_map;
+    for (const auto &aptr : mesh.animation) {
+        Animation anim{};
+        if (aptr) {
+            const modelconvert::Animation &mesh_anim = *aptr;
+            anim.duration = mesh_anim.duration;
+            for (const auto &mesh_anim_frame : mesh_anim.frame) {
+                int index;
+                auto lookup = frame_map.find(mesh_anim_frame.data_index);
+                if (lookup != frame_map.end()) {
+                    index = lookup->second;
+                } else {
+                    const std::vector<std::array<int16_t, 3>> &frame =
+                        mesh.animation_frame.at(mesh_anim_frame.data_index);
+                    FrameData fdata{};
+                    fdata.pos.reserve(dl_vertex_id.size());
+                    for (const int vertex_id : dl_vertex_id) {
+                        fdata.pos.push_back(
+                            FrameVertex{frame.at(vertex_id), 0});
+                    }
+                    index = model->frame.size();
+                    model->frame.push_back(std::move(fdata));
+                }
+                AnimationFrame anim_frame{};
+                anim_frame.time = mesh_anim_frame.time;
+                anim_frame.index = index;
+                anim.frame.push_back(anim_frame);
+            }
+        }
+        model->animation.push_back(std::move(anim));
+    }
+}
+
 } // namespace
 
 Model CompileMesh(const Mesh &mesh, const Config &cfg, std::FILE *stats) {
     if (stats) {
         fmt::print(stats, "Compiling model\n");
     }
-    Compiler compiler{mesh, cfg, stats};
-    DisplayList dl{VertexCacheSize};
-    compiler.Emit(&dl, stats);
-    dl.End();
+    int mat_count = 0;
+    for (const Triangle &tri : mesh.triangle) {
+        mat_count = std::max(mat_count, tri.material + 1);
+    }
+    VertexSet vert{mesh, cfg, stats};
     Model model;
-    model.command = dl.command();
-    model.vertex = dl.vertex();
+    std::vector<int> dl_vertex_id;
+    for (int mat = 0; mat < mat_count; mat++) {
+        Compiler compiler{vert, mesh, mat};
+        DisplayList dl(VertexCacheSize, dl_vertex_id.size() * Vtx::Size);
+        compiler.Emit(&dl, &dl_vertex_id, stats);
+        dl.End();
+        model.command.emplace_back(dl.command());
+        model.vertex.insert(model.vertex.end(), std::begin(dl.vertex()),
+                            std::end(dl.vertex()));
+    }
     if (cfg.animate) {
-        compiler.EmitAnimations(&model, mesh);
+        EmitAnimations(&model, mesh, dl_vertex_id);
     }
     return model;
 }

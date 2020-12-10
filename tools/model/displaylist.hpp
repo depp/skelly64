@@ -16,7 +16,7 @@ constexpr unsigned VertexCacheSize = 32;
 // multiple triangles into SP1Triangle and SP2Triangle.
 class DisplayList {
 public:
-    explicit DisplayList(unsigned cache_size);
+    DisplayList(unsigned cache_size, unsigned vertex_offset);
 
     // Read-only access to the vertex cache.
     const VertexCache &cache() const { return m_cache; }
@@ -50,6 +50,7 @@ private:
     void FlushVertex(int vertex);
 
     VertexCache m_cache;
+    unsigned m_vertex_offset;
 
     std::vector<Gfx> m_cmds;
     std::vector<Vtx> m_vtx;

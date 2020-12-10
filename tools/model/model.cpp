@@ -15,6 +15,8 @@ using util::BSwap32;
 
 namespace {
 
+constexpr size_t MaterialSlotCount = 4;
+
 size_t Align(size_t x) {
     return (x + 15) & ~static_cast<size_t>(15);
 }
@@ -30,14 +32,14 @@ struct DataRef {
 };
 
 struct FHeader {
-    static constexpr size_t Size = 32;
+    static constexpr size_t Size = 44;
 
     // File format header. Parsed by asset packer.
     DataRef data[2];
 
     // Asset starts here.
     uint32_t vertex_offset;
-    uint32_t dl_offset;
+    uint32_t dl_offset[MaterialSlotCount];
     uint32_t animation_count;
     uint32_t frame_size;
 
@@ -46,7 +48,9 @@ struct FHeader {
             d.Swap();
         }
         vertex_offset = BSwap32(vertex_offset);
-        dl_offset = BSwap32(dl_offset);
+        for (size_t i = 0; i < MaterialSlotCount; i++) {
+            dl_offset[i] = BSwap32(dl_offset[i]);
+        }
         animation_count = BSwap32(animation_count);
         frame_size = BSwap32(frame_size);
     }
@@ -120,8 +124,17 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
     const size_t framelen = FFrame::Size * FrameCount(*this);
 
     const size_t dlpos = Align(framepos + framelen);
-    const size_t dllen = Gfx::Size * command.size();
-    const size_t vertexpos = Align(dlpos + dllen);
+    size_t mat_count = std::min(command.size(), MaterialSlotCount);
+    size_t dlend = dlpos;
+    size_t cmd_offsets[MaterialSlotCount];
+    std::fill(std::begin(cmd_offsets), std::end(cmd_offsets), 0);
+    for (size_t i = 0; i < mat_count; i++) {
+        if (command[i].size() > 1) {
+            cmd_offsets[i] = dlend - base;
+            dlend += command[i].size() * Gfx::Size;
+        }
+    }
+    const size_t vertexpos = Align(dlend);
     const size_t vertexlen = Vtx::Size * vertex.size();
     const size_t fdatapos = Align(vertexpos + vertexlen);
     const size_t fdatalen = framedata_size * frame.size();
@@ -144,7 +157,8 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
         h.data[1].offset = fdatapos;
         h.data[1].size = endpos - fdatapos;
         h.vertex_offset = vertexpos - base;
-        h.dl_offset = dlpos - base;
+        std::copy(std::begin(cmd_offsets), std::end(cmd_offsets),
+                  std::begin(h.dl_offset));
         h.animation_count = animation.size();
         h.frame_size = framedata_size;
         WriteData(&data, headerpos, h);
@@ -174,12 +188,17 @@ std::vector<uint8_t> Model::Emit(const Config &cfg) const {
         }
     }
 
-    // Emit the display list.
+    // Emit the display lists.
     {
         uint8_t *ptr = data.data() + dlpos;
-        for (const Gfx &g : command) {
-            g.Write(ptr);
-            ptr += Gfx::Size;
+        for (size_t i = 0; i < mat_count; i++) {
+            const std::vector<Gfx> dlist = command[i];
+            if (dlist.size() > 1) {
+                for (const Gfx &g : dlist) {
+                    g.Write(ptr);
+                    ptr += Gfx::Size;
+                }
+            }
         }
     }
 
