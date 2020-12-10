@@ -521,7 +521,8 @@ void Importer::AddAnimation(int index, const aiAnimation *animation) {
     const double duration = animation->mDuration;
     int framecount = std::lrint(duration + 1.0);
     std::unique_ptr<Animation> anim = std::make_unique<Animation>();
-    anim->duration = duration;
+    // anim->duration = duration;
+    anim->duration = 1.0f;
     if (framecount <= 1) {
         AnimationFrame frame{};
         frame.data_index = CreateFrame(animation, 0.0);
@@ -533,7 +534,7 @@ void Importer::AddAnimation(int index, const aiAnimation *animation) {
         for (int i = 0; i < framecount; i++) {
             double time = i * (duration / (framecount - 1));
             AnimationFrame frame{};
-            frame.time = time;
+            frame.time = (double)i / (framecount - 1);
             frame.data_index = CreateFrame(animation, time);
             anim->frame.push_back(frame);
         }
