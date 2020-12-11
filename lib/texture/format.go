@@ -205,7 +205,7 @@ func (f SizedFormat) ChannelBits() (bits [4]int, err error) {
 		default:
 			return bits, fmt.Errorf("format IA does not support size: %s", f.Size)
 		}
-	case I:
+	case I, CI:
 		switch f.Size {
 		case Size8:
 			bits = [4]int{8, 0, 0, 0}

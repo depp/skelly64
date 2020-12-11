@@ -106,13 +106,18 @@ func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
 		dlNone = iota
 		dlRGBA16s32x32
 		dlI4s64x63
+		dlCI4s32x32
 	)
+	maxSize := tmemSize
+	if opts.format.Format == texture.CI {
+		maxSize >>= 1
+	}
 
 	// Create image tiles at sizes that fit in TMEM.
 	i16 := texture.ToRGBA16(img)
-	i16, err := texture.AutoScale(i16, tmemSize, opts.format.Size.Size(), opts.mipmap)
+	i16, err := texture.AutoScale(i16, maxSize, opts.format.Size.Size(), opts.mipmap)
 	if err != nil {
-		return nil, fmt.Errorf("could not scarle texture: %v", err)
+		return nil, fmt.Errorf("could not scale texture: %v", err)
 	}
 	var tiles []*image.RGBA64
 	if opts.mipmap {
@@ -129,6 +134,8 @@ func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
 	if tsize.X == 32 && tsize.Y == 32 {
 		if f.Format == texture.RGBA && f.Size == texture.Size16 {
 			dl = dlRGBA16s32x32
+		} else if f.Format == texture.CI && f.Size == texture.Size4 {
+			dl = dlCI4s32x32
 		}
 	} else if tsize.X == 64 && tsize.Y == 64 {
 		if f.Format == texture.I && f.Size == texture.Size4 {

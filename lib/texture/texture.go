@@ -348,7 +348,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 					dr[x] = (sr[x*4] & 0xf0) | (sr[x*4+3] >> 4)
 				}
 			}
-		case I:
+		case I, CI:
 			for y := 0; y < sy; y++ {
 				sr := im.Pix[y*ss : y*ss+sx*4 : y*ss+sx*4]
 				dr := r[y*ds : (y+1)*ds : (y+1)*ds]
@@ -378,7 +378,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 				for x := 0; x < sx; x++ {
 					tmp[x] = (((sr[x*4] >> 5) & 7) << 1) | ((sr[x*4+3] >> 7) & 1)
 				}
-			case I:
+			case I, CI:
 				for x := 0; x < sx; x++ {
 					tmp[x] = sr[x*4] >> 4
 				}

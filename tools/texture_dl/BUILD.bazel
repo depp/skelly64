@@ -13,6 +13,7 @@ cc_binary(
 DLS = [
     ("rgba16_32x32", "RGBA 16 32 32 6 repeat"),
     ("i4_64x64", "I 4 64 64 6 repeat"),
+    ("ci4_32x32", "I 4 32 32 6 repeat"),
 ]
 
 [genrule(
