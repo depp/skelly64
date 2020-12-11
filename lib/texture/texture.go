@@ -364,15 +364,12 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 		}
 		return r, nil
 	case Size4:
-		if sx&1 != 0 {
-			return nil, fmt.Errorf("invalid width for 4-bit texture: %d, width is not even", sx)
-		}
-		ds := sx / 2
+		ds := (sx + 1) / 2
 		if layout == Native {
 			ds = (ds + 7) &^ 7
 		}
 		r := make([]byte, sy*ds)
-		tmp := make([]byte, sx)
+		tmp := make([]byte, ds*2)
 		for y := 0; y < sy; y++ {
 			sr := im.Pix[y*ss : y*ss+sx*4 : y*ss+sx*4]
 			dr := r[y*ds : (y+1)*ds : (y+1)*ds]
@@ -388,7 +385,7 @@ func Pack(im *image.RGBA, f SizedFormat, layout Layout) ([]byte, error) {
 			default:
 				return nil, fmt.Errorf("invalid format: %s", f)
 			}
-			for x := 0; x < sx/2; x++ {
+			for x := 0; x < ds; x++ {
 				dr[x] = (tmp[x*2] << 4) | (tmp[x*2+1] & 15)
 			}
 		}

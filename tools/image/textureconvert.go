@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
@@ -101,6 +102,12 @@ func parseArgs() (opts options, err error) {
 }
 
 func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
+	const (
+		dlNone = iota
+		dlRGBA16s32x32
+		dlI4s64x63
+	)
+
 	// Create image tiles at sizes that fit in TMEM.
 	i16 := texture.ToRGBA16(img)
 	i16, err := texture.AutoScale(i16, tmemSize, opts.format.Size.Size(), opts.mipmap)
@@ -116,10 +123,26 @@ func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
 	} else {
 		tiles = []*image.RGBA64{i16}
 	}
+	tsize := i16.Rect.Size()
+	var dl int
+	f := opts.format
+	if tsize.X == 32 && tsize.Y == 32 {
+		if f.Format == texture.RGBA && f.Size == texture.Size16 {
+			dl = dlRGBA16s32x32
+		}
+	} else if tsize.X == 64 && tsize.Y == 64 {
+		if f.Format == texture.I && f.Size == texture.Size4 {
+			dl = dlI4s64x63
+		}
+	}
+	if dl == 0 {
+		return nil, errors.New("texture does not match a known display list")
+	}
 
 	// Convert texture to desired format and pack into contiguous block.
-	data := make([]byte, 16)
+	data := make([]byte, 24)
 	copy(data, "Texture")
+	binary.BigEndian.PutUint32(data[16:], uint32(dl))
 	for _, tile := range tiles {
 		img := texture.ToRGBA8(tile)
 		if err := texture.ToSizedFormat(opts.format, img, opts.dithering); err != nil {
