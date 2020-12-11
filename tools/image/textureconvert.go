@@ -45,6 +45,7 @@ type options struct {
 	strips    bool
 	dithering texture.Dithering
 	anchor    [2]float64
+	gamma     float64
 }
 
 func parseArgs() (opts options, err error) {
@@ -56,6 +57,7 @@ func parseArgs() (opts options, err error) {
 	flag.Var(&opts.format, "format", "use texture format `fmt.size` (e.g. rgba.16)")
 	dither := flag.String("dither", "", "use dithering algorithm (none, bayer, floyd-steinberg)")
 	anchor := flag.String("anchor", "", "origin of image (strips only), `x:y` range 0-1")
+	flag.Float64Var(&opts.gamma, "gamma", 0, "use `N` as the source image gamma")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
 		return opts, fmt.Errorf("unexpected argument: %q", args[0])
@@ -114,7 +116,7 @@ func makeTexture(opts *options, img *image.RGBA) ([]byte, error) {
 	}
 
 	// Create image tiles at sizes that fit in TMEM.
-	i16 := texture.ToRGBA16(img)
+	i16 := texture.ToRGBA16(img, opts.gamma)
 	i16, err := texture.AutoScale(i16, maxSize, opts.format.Size.Size(), opts.mipmap)
 	if err != nil {
 		return nil, fmt.Errorf("could not scale texture: %v", err)

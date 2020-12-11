@@ -120,7 +120,20 @@ func init() {
 }
 
 // ToRGBA16 converts an RGBA image to a linear RGBA64 format.
-func ToRGBA16(im *image.RGBA) *image.RGBA64 {
+func ToRGBA16(im *image.RGBA, gamma float64) *image.RGBA64 {
+	var table [256]uint16
+	if gamma <= 0 {
+		table = srgbToLinear
+	} else {
+		for i := range table {
+			x := math.Pow(float64(i)/255, gamma) * math.MaxUint16
+			if x >= math.MaxUint16 {
+				table[i] = math.MaxUint16
+			} else {
+				table[i] = uint16(math.Round(x))
+			}
+		}
+	}
 	b := im.Rect
 	xsize := b.Max.X - b.Min.X
 	ysize := b.Max.Y - b.Min.Y
@@ -131,9 +144,9 @@ func ToRGBA16(im *image.RGBA) *image.RGBA64 {
 		for x := 0; x < xsize; x++ {
 			ipix := irow[x*4 : x*4+4 : x*4+4]
 			opix := orow[x*8 : x*8+8 : x*8+8]
-			r := srgbToLinear[ipix[0]]
-			g := srgbToLinear[ipix[1]]
-			b := srgbToLinear[ipix[2]]
+			r := table[ipix[0]]
+			g := table[ipix[1]]
+			b := table[ipix[2]]
 			a := ipix[3]
 			opix[0] = byte(r >> 8)
 			opix[1] = byte(r)
