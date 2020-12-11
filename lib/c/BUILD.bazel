@@ -1,7 +1,7 @@
-package(default_visibility = ["//visibility:public"])
-
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//base:copts.bzl", "COPTS")
+
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "defs",
@@ -32,6 +32,7 @@ cc_library(
         "fixup.c",
         "float.c",
         "hash.c",
+        "ivec3.c",
         "mat4.c",
         "memory.c",
         "quat.c",
@@ -44,6 +45,7 @@ cc_library(
         "fixup.h",
         "float.h",
         "hash.h",
+        "ivec3.h",
         "mat4.h",
         "memory.h",
         "quat.h",
