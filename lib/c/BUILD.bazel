@@ -82,6 +82,7 @@ cc_library(
         "swap16.c",
         "swap16arr.c",
         "swap32.c",
+        "xatoi.c",
         "xmalloc.c",
     ],
     hdrs = [

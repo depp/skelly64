@@ -32,6 +32,9 @@ void *xmalloc(size_t size) __attribute__((malloc, alloc_size(1)));
 void *xcalloc(size_t nmemb, size_t size)
     __attribute__((malloc, alloc_size(1, 2)));
 
+// Convert to integer, abort on failure.
+int xatoi(const char *s);
+
 inline uint16_t swap16(uint16_t x) {
     return __builtin_bswap16(x);
 }

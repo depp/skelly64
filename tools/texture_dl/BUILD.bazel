@@ -1,0 +1,33 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("//base:copts.bzl", "COPTS")
+
+cc_binary(
+    name = "gen",
+    srcs = ["gen.c"],
+    copts = COPTS,
+    deps = [
+        "//base:tool",
+    ],
+)
+
+DLS = [
+    ("rgba16_32x32", "RGBA 16 32 32 6 repeat"),
+]
+
+[genrule(
+    name = name,
+    outs = [name + ".h"],
+    cmd = "$(execpath :gen) $@ " + spec,
+    tools = [":gen"],
+) for (name, spec) in DLS]
+
+cc_library(
+    name = "texture_dl",
+    srcs = ["dl.c"] + [name for (name, spec) in DLS],
+    hdrs = ["dl.h"],
+    copts = COPTS,
+    visibility = ["//game/n64:__subpackages__"],
+    deps = [
+        "//base/n64",
+    ],
+)
