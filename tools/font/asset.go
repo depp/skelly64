@@ -52,8 +52,9 @@ func makeAssetGlyphs(fn *font) ([]byte, error) {
 func makeAssetTextures(fn *font, tf texture.SizedFormat, offset uint32) ([]byte, error) {
 	const recSize = 12
 	out := make([]byte, len(fn.textures)*recSize)
-	var pad [4]byte
+	var pad [7]byte
 	for i, t := range fn.textures {
+		out = append(out, pad[:(-len(out))&7]...)
 		off := i * recSize
 		rec := out[off : off+recSize : off+recSize]
 		sx := t.Rect.Max.X - t.Rect.Min.X
@@ -73,7 +74,6 @@ func makeAssetTextures(fn *font, tf texture.SizedFormat, offset uint32) ([]byte,
 				sx, sy, tf, len(d), texture.MemSize)
 		}
 		out = append(out, d...)
-		out = append(out, pad[:(-len(out))&3]...)
 	}
 	return out, nil
 }
