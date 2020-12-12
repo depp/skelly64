@@ -383,6 +383,18 @@ func (fn *font) makeGrid() *image.RGBA {
 	return im
 }
 
+func (fn *font) trim() {
+	for _, g := range fn.glyphs {
+		pt := g.image.Rect.Min
+		g.image = *texture.Trim(&g.image)
+		dpt := g.image.Rect.Min.Sub(pt)
+		g.center[0] -= int32(dpt.X)
+		g.center[1] -= int32(dpt.Y)
+		g.size[0] = int32(g.image.Rect.Dx())
+		g.size[1] = int32(g.image.Rect.Dy())
+	}
+}
+
 func (fn *font) pack(texsize image.Point) (*image.RGBA, error) {
 	p := rectpack.New()
 	sizes := make([]rectpack.Point, len(fn.glyphs))
@@ -448,7 +460,7 @@ func (fn *font) pack(texsize image.Point) (*image.RGBA, error) {
 				Max: image.Point{X: px + int(g.size[0]), Y: py + int(g.size[1])},
 			},
 			&g.image,
-			image.Point{},
+			g.image.Rect.Min,
 			draw.Src,
 		)
 	}
@@ -491,8 +503,17 @@ const (
 )
 
 type options struct {
-	font         string
-	size         int
+	// Input: font.
+	font string
+	size int
+
+	// Input: sprites.
+	sprites       string
+	spriteGrid    int
+	spriteY       int
+	spriteAdvance int
+
+	// Output.
 	grid         string
 	texfile      string
 	datafile     string
@@ -566,7 +587,13 @@ func parseShadow(arg string, o *options) error {
 
 func parseOpts() (o options, err error) {
 	fontArg := flag.String("font", "", "font to rasterize")
-	sizeArg := flag.Int("size", 0, "size to rasterize font at")
+	flag.IntVar(&o.size, "font-size", 0, "size to rasterize font at")
+
+	spritesArg := flag.String("sprites", "", "sprite sheet to use as glyphs")
+	flag.IntVar(&o.spriteGrid, "sprite-grid", 0, "sprite grid")
+	flag.IntVar(&o.spriteY, "sprite-y", 0, "Y offset for sprites")
+	flag.IntVar(&o.spriteAdvance, "sprite-advance", 0, "additional advance for sprites")
+
 	gridArg := flag.String("out-grid", "", "grid preview output file")
 	textureArg := flag.String("out-texture", "", "output texture")
 	texsizeArg := flag.String("texture-size", "", "pack into multiple regions of size `WIDTH:HEIGHT`")
@@ -583,16 +610,22 @@ func parseOpts() (o options, err error) {
 	if args := flag.Args(); len(args) != 0 {
 		return o, fmt.Errorf("unexpected argument: %q", args[0])
 	}
-	o.font = getpath.GetPath(*fontArg)
-	if o.font == "" {
-		return o, errors.New("missing required flag -font")
-	}
-	o.size = *sizeArg
-	if o.size == 0 {
-		return o, errors.New("missing required flag -size")
-	}
-	if o.size < minSize || maxSize < o.size {
-		return o, fmt.Errorf("invalid size %d, must be between %d and %d", o.size, minSize, maxSize)
+	if *fontArg != "" {
+		if *spritesArg != "" {
+			return o, errors.New("cannot use -font and -sprites")
+		}
+		o.font = getpath.GetPath(*fontArg)
+		if o.size == 0 {
+			return o, errors.New("missing required flag -size")
+		}
+		if o.size < minSize || maxSize < o.size {
+			return o, fmt.Errorf("invalid size %d, must be between %d and %d", o.size, minSize, maxSize)
+		}
+	} else if *spritesArg != "" {
+		o.sprites = getpath.GetPath(*spritesArg)
+		if o.spriteGrid == 0 {
+			return o, errors.New("missing required flag -sprite-grid")
+		}
 	}
 	o.grid = getpath.GetPath(*gridArg)
 	o.texfile = getpath.GetPath(*textureArg)
@@ -652,14 +685,10 @@ func parseOpts() (o options, err error) {
 	return o, nil
 }
 
-func mainE() error {
-	opts, err := parseOpts()
-	if err != nil {
-		return err
-	}
+func getFont(opts *options) (*font, error) {
 	fn, err := rasterizeFont(opts.font, opts.size)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if opts.charset != nil {
 		fn.subset(opts.charset)
@@ -684,6 +713,66 @@ func mainE() error {
 	fn.compact()
 	if opts.removeNotdef {
 		fn.glyphs[0].image = image.RGBA{}
+	}
+	return fn, nil
+}
+
+func getSprites(opts *options) (*font, error) {
+	rimg, err := texture.ReadPNG(opts.sprites)
+	if err != nil {
+		return nil, err
+	}
+	img := texture.ToRGBA(rimg)
+	xn := opts.spriteGrid
+	size := img.Rect.Dx() / xn
+	yn := img.Rect.Dy() / size
+	charmap := make(map[uint32]uint32)
+	glyphs := []*glyph{&glyph{}}
+	for y := 0; y < yn; y++ {
+		for x := 0; x < xn; x++ {
+			gi := img.SubImage(image.Rectangle{
+				Min: image.Point{X: x * size, Y: y * size},
+				Max: image.Point{X: x*size + size, Y: y*size + size},
+			}).(*image.RGBA)
+			if texture.IsEmpty(gi) {
+				continue
+			}
+			gi.Rect = gi.Rect.Sub(image.Point{
+				X: x*size + size>>1,
+				Y: y*size + size>>1,
+			})
+			cidx := uint32('A' + len(charmap))
+			gidx := uint32(len(glyphs))
+			charmap[cidx] = gidx
+			glyphs = append(glyphs, &glyph{
+				size:   [2]int32{int32(size), int32(size)},
+				center: [2]int32{int32(size >> 1), int32(size >> 1)},
+				name:   "sprite",
+				image:  *gi,
+			})
+		}
+	}
+	return &font{
+		charmap: charmap,
+		glyphs:  glyphs,
+	}, nil
+}
+
+func mainE() error {
+	opts, err := parseOpts()
+	if err != nil {
+		return err
+	}
+	var fn *font
+	if opts.font != "" {
+		fn, err = getFont(&opts)
+	} else if opts.sprites != "" {
+		fn, err = getSprites(&opts)
+	} else {
+		panic("bad option parsing")
+	}
+	if err != nil {
+		return err
 	}
 	if opts.shadow {
 		if err := fn.addShadow(opts.shadowPos, opts.shadowAlpha); err != nil {
@@ -713,6 +802,21 @@ func mainE() error {
 		}
 	}
 	if opts.texfile != "" || opts.datafile != "" {
+		fn.trim()
+		if opts.sprites != "" {
+			for _, g := range fn.glyphs {
+				// Keep the center of the glyph: calculate advance from the
+				// maximum of both sizes.
+				adv := -g.image.Rect.Min.X
+				if g.image.Rect.Max.X > adv {
+					adv = g.image.Rect.Max.X
+				}
+				adv *= 2
+				g.advance = int32(adv)
+				g.center[0] = int32(g.image.Rect.Min.X + adv>>1)
+				g.center[1] += int32(opts.spriteY)
+			}
+		}
 		im, err := fn.pack(opts.texsize)
 		if err != nil {
 			return fmt.Errorf("could not pack: %w", err)

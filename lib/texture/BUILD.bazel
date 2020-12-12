@@ -4,6 +4,7 @@ go_library(
     name = "texture",
     srcs = [
         "format.go",
+        "image.go",
         "scale.go",
         "texture.go",
     ],

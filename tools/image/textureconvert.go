@@ -6,10 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/png"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,23 +16,6 @@ import (
 )
 
 const tmemSize = 4096
-
-func readPNG(filename string) (image.Image, error) {
-	ext := filepath.Ext(filename)
-	if !strings.EqualFold(ext, ".png") {
-		return nil, fmt.Errorf("file does not have .png extension: %q", filename)
-	}
-	fp, err := os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer fp.Close()
-	im, err := png.Decode(fp)
-	if err != nil {
-		return nil, fmt.Errorf("could not decode %q: %w", filename, err)
-	}
-	return im, nil
-}
 
 type options struct {
 	output    string
@@ -174,7 +155,7 @@ func mainE() error {
 	}
 
 	// Load image as RGBA with 8 bits per sample.
-	inimg, err := readPNG(opts.input)
+	inimg, err := texture.ReadPNG(opts.input)
 	if err != nil {
 		return err
 	}

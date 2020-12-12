@@ -43,7 +43,7 @@ func IsEmpty(im *image.RGBA) bool {
 }
 
 // Trim returns the smallest subimage of the image containing all pixels with
-// nonzero alpha. Returns nil if empty.
+// nonzero alpha. May return an empty image.
 func Trim(im *image.RGBA) *image.RGBA {
 	ysz := im.Rect.Dy()
 	xsz := im.Rect.Dx()
@@ -78,7 +78,7 @@ func Trim(im *image.RGBA) *image.RGBA {
 		}
 	}
 	if xmin >= xmax || ymin >= ymax {
-		return nil
+		return new(image.RGBA)
 	}
 	return im.SubImage(image.Rectangle{
 		Min: image.Point{X: xmin, Y: ymin},
