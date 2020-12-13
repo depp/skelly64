@@ -388,7 +388,7 @@ func (fn *font) trim() {
 		pt := g.image.Rect.Min
 		g.image = *texture.Trim(&g.image)
 		dpt := g.image.Rect.Min.Sub(pt)
-		g.center[0] -= int32(dpt.X)
+		g.center[0] += int32(dpt.X)
 		g.center[1] -= int32(dpt.Y)
 		g.size[0] = int32(g.image.Rect.Dx())
 		g.size[1] = int32(g.image.Rect.Dy())
