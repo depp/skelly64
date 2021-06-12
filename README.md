@@ -37,3 +37,13 @@ Creates the bootsector of an Nintendo 64 ROM image.
 ### Texture Display List Creator
 
 Creates a display list for mip-mapped textures.
+
+## Building
+
+Building requires the following prerequisites:
+
+- [Bazel](https://bazel.build/) 4.1.0 (You can try other versions, but you will need to change the .bazelversion file in order for other versions to work.)
+- [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
+- [SoX](http://sox.sourceforge.net/)
+- [AssImp](https://www.assimp.org/)
+- [FreeType](https://www.freetype.org/)
