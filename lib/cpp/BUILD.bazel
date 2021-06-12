@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-load("//base:copts.bzl", "CXXOPTS")
+load("//bazel:copts.bzl", "CXXOPTS")
 
 cc_library(
     name = "quote",

@@ -1,6 +1,6 @@
-#include "tools/util/flag.hpp"
+#include "lib/cpp/flag.hpp"
 
-#include "tools/util/quote.hpp"
+#include "lib/cpp/quote.hpp"
 
 #include <cassert>
 #include <cstring>

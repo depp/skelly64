@@ -34,9 +34,9 @@ _COPTS_WARNING = [
 COPTS = (
     COPTS_BASE +
     select({
-        "//base/bazel:warnings_off": [],
-        "//base/bazel:warnings_on": _COPTS_WARNING,
-        "//base/bazel:warnings_error": _COPTS_WARNING + ["-Werror"],
+        "//bazel:warnings_off": [],
+        "//bazel:warnings_on": _COPTS_WARNING,
+        "//bazel:warnings_error": _COPTS_WARNING + ["-Werror"],
     }) +
     select({
         "//n64:os": ["-fexec-charset=windows-1252"],
@@ -60,8 +60,8 @@ _CXXOPTS_WARNING = [
 CXXOPTS = (
     CXXOPTS_BASE +
     select({
-        "//base/bazel:warnings_off": [],
-        "//base/bazel:warnings_on": _CXXOPTS_WARNING,
-        "//base/bazel:warnings_error": _CXXOPTS_WARNING + ["-Werror"],
+        "//bazel:warnings_off": [],
+        "//bazel:warnings_on": _CXXOPTS_WARNING,
+        "//bazel:warnings_error": _CXXOPTS_WARNING + ["-Werror"],
     })
 )

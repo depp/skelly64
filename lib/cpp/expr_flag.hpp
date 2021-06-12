@@ -1,7 +1,7 @@
 #pragma once
 
-#include "tools/util/expr.hpp"
-#include "tools/util/flag.hpp"
+#include "lib/cpp/expr.hpp"
+#include "lib/cpp/flag.hpp"
 
 namespace util {
 

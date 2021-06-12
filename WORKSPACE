@@ -1,23 +1,12 @@
 workspace(name = "thornmarked")
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # ==============================================================================
 # Local Dependencies
 # ==============================================================================
 
-load("//base/bazel:tools.bzl", "local_tools_repository")
-
-local_tools_repository(
-    name = "tools",
-    tools = [
-        "flac",
-        "sox",
-    ],
-)
-
-load("//base/bazel:pkg_config.bzl", "pkg_config_repository")
+load("//bazel:pkg_config.bzl", "pkg_config_repository")
 
 pkg_config_repository(
     name = "freetype",
@@ -83,14 +72,6 @@ go_repository(
 )
 
 gazelle_dependencies()
-
-# ==============================================================================
-# Toolchains
-# ==============================================================================
-
-register_toolchains(
-    "//n64:cc-toolchain-n64",
-)
 
 # ==============================================================================
 # Built Dependencies

@@ -16,21 +16,21 @@ string_flag(
 
 config_setting(
     name = "warnings_off",
-    define_values = {
+    flag_values = {
         ":warnings": "off",
     },
 )
 
 config_setting(
     name = "warnings_on",
-    define_values = {
+    flag_values = {
         ":warnings": "on",
     },
 )
 
 config_setting(
     name = "warnings_error",
-    define_values = {
+    flag_values = {
         ":warnings": "error",
     },
 )

@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
-load("@//base:copts.bzl", "CXXOPTS_BASE")
+load("@//bazel:copts.bzl", "CXXOPTS_BASE")
 
 cc_library(
     name = "fmt",

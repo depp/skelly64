@@ -1,4 +1,4 @@
-_DEFAULT_TEMPLATE = Label("@thornmarked//base/bazel:pkg_config.BUILD.tpl")
+_DEFAULT_TEMPLATE = Label("@thornmarked//bazel:pkg_config.BUILD.tpl")
 
 def _run_pkg_config(repository_ctx, spec, flags):
     exec_result = repository_ctx.execute(["pkg-config"] + flags + [spec])
