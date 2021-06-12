@@ -47,3 +47,9 @@ Building requires the following prerequisites:
 - [SoX](http://sox.sourceforge.net/)
 - [AssImp](https://www.assimp.org/)
 - [FreeType](https://www.freetype.org/)
+
+### Development
+
+If you are making changes to Skelly 64, you should enable C++ compiler warnings. The easiest way to do this is by adding a file named `.user.bazelrc` to the top-level directory, containing the following configuration:
+
+    build --//bazel:warnings=error
