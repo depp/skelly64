@@ -1,7 +1,7 @@
 #pragma once
 
-#include "tools/modelconvert/gbi.hpp"
-#include "tools/modelconvert/vertexcache.hpp"
+#include "tools/model/gbi.hpp"
+#include "tools/model/vertexcache.hpp"
 
 #include <array>
 #include <vector>

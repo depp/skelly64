@@ -1,8 +1,8 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("//base:copts.bzl", "CXXOPTS")
+load("//bazel:copts.bzl", "CXXOPTS")
 
 cc_binary(
-    name = "modelconvert",
+    name = "model",
     srcs = [
         "assimp.cpp",
         "axes.cpp",
@@ -26,12 +26,12 @@ cc_binary(
     copts = CXXOPTS,
     visibility = ["//visibility:public"],
     deps = [
-        "//tools/util:bswap",
-        "//tools/util:expr",
-        "//tools/util:flag",
-        "//tools/util:hash",
-        "//tools/util:pack",
-        "//tools/util:quote",
+        "//lib/cpp:bswap",
+        "//lib/cpp:expr",
+        "//lib/cpp:flag",
+        "//lib/cpp:hash",
+        "//lib/cpp:pack",
+        "//lib/cpp:quote",
         "@assimp",
         "@fmt",
     ],

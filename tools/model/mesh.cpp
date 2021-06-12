@@ -1,9 +1,9 @@
-#include "tools/modelconvert/mesh.hpp"
+#include "tools/model/mesh.hpp"
 
-#include "tools/modelconvert/config.hpp"
-#include "tools/util/hash.hpp"
-#include "tools/util/pack.hpp"
-#include "tools/util/quote.hpp"
+#include "tools/model/config.hpp"
+#include "lib/cpp/hash.hpp"
+#include "lib/cpp/pack.hpp"
+#include "lib/cpp/quote.hpp"
 
 #include <assimp/scene.h>
 #include <cassert>

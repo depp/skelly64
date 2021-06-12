@@ -1,9 +1,9 @@
-#include "tools/modelconvert/compile.hpp"
+#include "tools/model/compile.hpp"
 
-#include "tools/modelconvert/config.hpp"
-#include "tools/modelconvert/displaylist.hpp"
-#include "tools/modelconvert/gbi.hpp"
-#include "tools/modelconvert/mesh.hpp"
+#include "tools/model/config.hpp"
+#include "tools/model/displaylist.hpp"
+#include "tools/model/gbi.hpp"
+#include "tools/model/mesh.hpp"
 
 #include <algorithm>
 #include <cassert>

@@ -1,7 +1,7 @@
-#include "tools/modelconvert/model.hpp"
+#include "tools/model/model.hpp"
 
-#include "tools/modelconvert/config.hpp"
-#include "tools/util/bswap.hpp"
+#include "tools/model/config.hpp"
+#include "lib/cpp/bswap.hpp"
 
 #include <cstring>
 #include <stdexcept>

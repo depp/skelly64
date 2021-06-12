@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-#include "tools/modelconvert/model.hpp"
+#include "tools/model/model.hpp"
 
 namespace modelconvert {
 

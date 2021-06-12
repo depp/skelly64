@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tools/modelconvert/axes.hpp"
+#include "tools/model/axes.hpp"
 
 namespace modelconvert {
 

@@ -1,11 +1,11 @@
-#include "tools/modelconvert/compile.hpp"
-#include "tools/modelconvert/config.hpp"
-#include "tools/modelconvert/mesh.hpp"
-#include "tools/modelconvert/model.hpp"
-#include "tools/util/expr.hpp"
-#include "tools/util/expr_flag.hpp"
-#include "tools/util/flag.hpp"
-#include "tools/util/quote.hpp"
+#include "tools/model/compile.hpp"
+#include "tools/model/config.hpp"
+#include "tools/model/mesh.hpp"
+#include "tools/model/model.hpp"
+#include "lib/cpp/expr.hpp"
+#include "lib/cpp/expr_flag.hpp"
+#include "lib/cpp/flag.hpp"
+#include "lib/cpp/quote.hpp"
 
 #include <cassert>
 #include <cmath>

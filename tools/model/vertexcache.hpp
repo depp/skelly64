@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tools/modelconvert/gbi.hpp"
+#include "tools/model/gbi.hpp"
 
 #include <array>
 #include <cstdint>

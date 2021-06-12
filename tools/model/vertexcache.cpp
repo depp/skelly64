@@ -1,6 +1,6 @@
-#include "tools/modelconvert/vertexcache.hpp"
+#include "tools/model/vertexcache.hpp"
 
-#include "tools/util/hash.hpp"
+#include "lib/cpp/hash.hpp"
 
 #include <stdexcept>
 

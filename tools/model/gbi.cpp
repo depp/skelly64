@@ -1,6 +1,6 @@
-#include "tools/modelconvert/gbi.hpp"
+#include "tools/model/gbi.hpp"
 
-#include "tools/util/bswap.hpp"
+#include "lib/cpp/bswap.hpp"
 
 #include <cstring>
 
