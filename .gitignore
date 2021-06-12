@@ -1,4 +1,2 @@
 /bazel-*
 /.user.bazelrc
-/temp
-*.blend1
