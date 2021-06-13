@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace modelconvert {
 namespace gbi {
@@ -22,8 +23,16 @@ struct alignas(8) Vtx {
     std::array<int16_t, 2> texcoord;
     std::array<uint8_t, 4> color; // Or normal.
 
-    // Write to output buffer.
-    void Write(uint8_t *ptr) const;
+    // Write to buffer in binary format.
+    void WriteBinary(uint8_t *ptr) const;
+
+    // Write to a buffer as C source code. This writes the structure as a C
+    // structure, surrounded by curly braces, but no surrounding commas or
+    // whitespace. Note that Vtx is a union, so the outer braces will be
+    // doubled. For example,
+    //
+    //     "{{{100, 200, 300}, 0, {50, 75}, {255, 127, 255, 255}}}"
+    void WriteSource(std::vector<uint8_t> *out) const;
 };
 
 // Offsets within the vertex cache.
@@ -42,8 +51,14 @@ struct alignas(8) Gfx {
     uint32_t hi;
     uint32_t lo;
 
-    // Write to buffer.
-    void Write(uint8_t *ptr) const;
+    // Write to buffer in binary format.
+    void WriteBinary(uint8_t *ptr) const;
+
+    // Write to a buffer as C source code. This writes the GBI macro and its
+    // arguments, but no whitespace or surrounding commas. For example,
+    //
+    //     "gsSPVertex(0, 1, 2)"
+    void WriteSource(std::vector<uint8_t> *out) const;
 
     static Gfx SPVertex(unsigned v, unsigned n, unsigned v0);
     static Gfx SPModifyVertex(int vertex, VertexField field, uint32_t value);

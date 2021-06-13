@@ -1,11 +1,11 @@
-#include "tools/model/compile.hpp"
-#include "tools/model/config.hpp"
-#include "tools/model/mesh.hpp"
-#include "tools/model/model.hpp"
 #include "lib/cpp/expr.hpp"
 #include "lib/cpp/expr_flag.hpp"
 #include "lib/cpp/flag.hpp"
 #include "lib/cpp/quote.hpp"
+#include "tools/model/compile.hpp"
+#include "tools/model/config.hpp"
+#include "tools/model/mesh.hpp"
+#include "tools/model/model.hpp"
 
 #include <cassert>
 #include <cmath>
@@ -73,6 +73,8 @@ public:
 struct Args {
     std::string model;
     std::string output;
+    std::string output_c;
+    std::string variable_name; // Name for variable for C source output.
     std::string output_stats;
     util::Expr::Ref meter;
     util::Expr::Ref scale;
@@ -102,10 +104,15 @@ Args ParseArgs(int argc, char **argv) {
     }
     Args args{};
     args.config.texcoord_bits = 11;
+    args.variable_name = "kModel";
     flag::Parser fl;
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");
+    fl.AddFlag(flag::String(&args.output_c), "output-c",
+               "output C source code to FILE");
+    fl.AddFlag(flag::String(&args.variable_name), "variable-name",
+               "use NAME as variable name in C source output", "NAME");
     fl.AddFlag(flag::String(&args.output_stats), "output-stats",
                "write human-readable model information to FILE", "FILE");
     fl.AddBoolFlag(&args.config.use_primitive_color, "use-primitive-color",
@@ -212,8 +219,19 @@ void Main(int argc, char **argv) {
         fmt::print(stats, "Frames: {}\n", model.frame.size());
     }
     if (!args.output.empty()) {
-        std::vector<uint8_t> data = model.Emit(cfg);
+        std::vector<uint8_t> data = model.EmitBinary(cfg);
         WriteFile(args.output, data);
+    }
+    if (!args.output_c.empty()) {
+        std::vector<uint8_t> data = model.EmitSource(cfg, args.variable_name);
+        if (args.output_c == "-") {
+            size_t n = fwrite(data.data(), 1, data.size(), stdout);
+            if (n != data.size()) {
+                err(1, "could not write");
+            }
+        } else {
+            WriteFile(args.output_c, data);
+        }
     }
 }
 
