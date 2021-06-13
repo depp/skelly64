@@ -8,7 +8,7 @@ go_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//tools/getpath",
-        "//tools/texture",
+        "//lib/getpath",
+        "//lib/texture",
     ],
 )

@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"thornmarked/tools/font/charset"
+
+	"github.com/depp/skelly64/tools/font/charset"
 )
 
 func hash(x uint32) uint32 {

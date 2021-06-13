@@ -5,6 +5,6 @@ go_library(
     srcs = [
         "getpath.go",
     ],
-    importpath = "thornmarked/tools/getpath",
+    importpath = "github.com/depp/skelly64/lib/getpath",
     visibility = ["//visibility:public"],
 )

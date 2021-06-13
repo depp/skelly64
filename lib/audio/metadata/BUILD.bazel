@@ -5,6 +5,6 @@ go_library(
     srcs = [
         "metadata.go",
     ],
-    importpath = "thornmarked/tools/audio/metadata",
-    visibility = ["//tools:__subpackages__"],
+    importpath = "github.com/depp/skelly64/lib/audio/metadata",
+    visibility = ["//visibility:public"],
 )

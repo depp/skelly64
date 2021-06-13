@@ -21,10 +21,10 @@ import (
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/encoding/htmlindex"
 
-	"thornmarked/tools/font/charset"
-	"thornmarked/tools/getpath"
-	"thornmarked/tools/rectpack"
-	"thornmarked/tools/texture"
+	"github.com/depp/skelly64/tools/font/charset"
+	"github.com/depp/skelly64/lib/getpath"
+	"github.com/depp/skelly64/lib/rectpack"
+	"github.com/depp/skelly64/lib/texture"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"math"
 	"os"
 
-	"thornmarked/tools/texture"
+	"github.com/depp/skelly64/lib/texture"
 )
 
 type rowSpan struct {

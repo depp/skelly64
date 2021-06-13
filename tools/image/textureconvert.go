@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"thornmarked/tools/getpath"
-	"thornmarked/tools/texture"
+	"github.com/depp/skelly64/lib/getpath"
+	"github.com/depp/skelly64/lib/texture"
 )
 
 const tmemSize = 4096

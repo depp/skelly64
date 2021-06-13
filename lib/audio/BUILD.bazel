@@ -5,9 +5,9 @@ go_library(
     srcs = [
         "audio.go",
     ],
-    importpath = "thornmarked/tools/audio",
+    importpath = "github.com/depp/skelly64/lib/audio",
     visibility = ["//tools:__subpackages__"],
     deps = [
-        "//tools/audio/aiff",
+        "//lib/audio/aiff",
     ],
 )

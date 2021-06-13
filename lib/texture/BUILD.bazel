@@ -8,6 +8,6 @@ go_library(
         "scale.go",
         "texture.go",
     ],
-    importpath = "thornmarked/tools/texture",
-    visibility = ["//tools:__subpackages__"],
+    importpath = "github.com/depp/skelly64/lib/texture",
+    visibility = ["//visibility:public"],
 )

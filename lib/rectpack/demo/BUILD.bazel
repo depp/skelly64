@@ -5,5 +5,5 @@ go_binary(
     srcs = [
         "demo.go",
     ],
-    deps = ["//tools/rectpack"],
+    deps = ["//lib/rectpack"],
 )

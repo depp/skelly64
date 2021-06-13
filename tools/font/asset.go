@@ -3,7 +3,8 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"thornmarked/tools/texture"
+	
+	"github.com/depp/skelly64/lib/texture"
 )
 
 const ()

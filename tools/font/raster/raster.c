@@ -2,7 +2,7 @@
 // figures out the correct scale for bitmap fonts and pixel fonts, and this
 // works correctly both for fonts with bitmap strikes (proper bitmap fonts) and
 // for modern TTF bitmaps that have been converted to outlines.
-#include "base/tool.h"
+#include "lib/c/tool.h"
 
 #include <assert.h>
 #include <errno.h>

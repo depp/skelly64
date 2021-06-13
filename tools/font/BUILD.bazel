@@ -10,10 +10,10 @@ go_binary(
     data = ["//tools/font/raster"],
     visibility = ["//visibility:public"],
     deps = [
+        "//lib/getpath",
+        "//lib/rectpack",
+        "//lib/texture",
         "//tools/font/charset",
-        "//tools/getpath",
-        "//tools/rectpack",
-        "//tools/texture",
         "@org_golang_x_text//encoding/charmap",
         "@org_golang_x_text//encoding/htmlindex",
     ],

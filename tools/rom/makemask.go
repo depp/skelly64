@@ -9,7 +9,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-	"thornmarked/tools/getpath"
+	
+	"github.com/depp/skelly64/lib/getpath"
 )
 
 const (

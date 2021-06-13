@@ -5,6 +5,6 @@ go_library(
     srcs = [
         "charset.go",
     ],
-    importpath = "thornmarked/tools/font/charset",
+    importpath = "github.com/depp/skelly64/tools/font/charset",
     visibility = ["//tools/font:__subpackages__"],
 )

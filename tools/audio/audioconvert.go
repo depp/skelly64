@@ -14,9 +14,9 @@ import (
 	"strconv"
 	"strings"
 
-	"thornmarked/tools/audio/aiff"
-	"thornmarked/tools/audio/metadata"
-	"thornmarked/tools/getpath"
+	"github.com/depp/skelly64/lib/audio/aiff"
+	"github.com/depp/skelly64/lib/audio/metadata"
+	"github.com/depp/skelly64/lib/getpath"
 )
 
 type options struct {

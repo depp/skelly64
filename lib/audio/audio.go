@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"thornmarked/tools/audio/aiff"
+	"github.com/depp/skelly64/lib/audio/aiff"
 )
 
 // A Track is an audio music track.

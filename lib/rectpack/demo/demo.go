@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"os"
 
-	"thornmarked/tools/rectpack"
+	"github.com/depp/skelly64/lib/rectpack"
 )
 
 const sizeLimit = 1024

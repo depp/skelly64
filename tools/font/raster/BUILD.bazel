@@ -1,5 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
-load("//base:copts.bzl", "COPTS")
+load("//bazel:copts.bzl", "COPTS")
 
 cc_binary(
     name = "raster",
@@ -7,10 +7,9 @@ cc_binary(
         "raster.c",
     ],
     copts = COPTS,
-    # visibility = ["//tools/font:__pkg__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//base:tool",
+        "//lib/c:tool",
         "@freetype",
     ],
 )

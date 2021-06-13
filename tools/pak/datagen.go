@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	"thornmarked/tools/audio"
+	"github.com/depp/skelly64/lib/audio"
 )
 
 // Check that the first n bytes of the data equal the magic, followed by nul

@@ -6,6 +6,6 @@ go_library(
         "aiff.go",
         "extended.go",
     ],
-    importpath = "thornmarked/tools/audio/aiff",
-    visibility = ["//tools:__subpackages__"],
+    importpath = "github.com/depp/skelly64/lib/audio/aiff",
+    visibility = ["//visibility:public"],
 )

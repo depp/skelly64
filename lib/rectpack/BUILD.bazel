@@ -7,7 +7,7 @@ go_library(
         "order.go",
         "rectpack.go",
     ],
-    importpath = "thornmarked/tools/rectpack",
+    importpath = "github.com/depp/skelly64/lib/rectpack",
     visibility = ["//visibility:public"],
 )
 

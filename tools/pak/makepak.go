@@ -13,7 +13,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"thornmarked/tools/getpath"
+	"github.com/depp/skelly64/lib/getpath"
 )
 
 type stringArrayValue struct {

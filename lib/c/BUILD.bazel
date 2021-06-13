@@ -1,108 +1,16 @@
-load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load("//base:copts.bzl", "COPTS")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel:copts.bzl", "COPTS")
 
 package(default_visibility = ["//visibility:public"])
-
-cc_library(
-    name = "defs",
-    hdrs = [
-        "defs.h",
-    ],
-    copts = COPTS,
-)
-
-cc_library(
-    name = "random",
-    srcs = [
-        "random.c",
-    ],
-    hdrs = [
-        "random.h",
-    ],
-    copts = COPTS,
-)
-
-cc_library(
-    name = "base",
-    srcs = [
-        "console.c",
-        "console_global.c",
-        "console_internal.h",
-        "fatal.c",
-        "fixup.c",
-        "float.c",
-        "hash.c",
-        "ivec3.c",
-        "mat4.c",
-        "memory.c",
-        "quat.c",
-        "vec2.c",
-        "vec3.c",
-    ],
-    hdrs = [
-        "base.h",
-        "console.h",
-        "fixup.h",
-        "float.h",
-        "hash.h",
-        "ivec3.h",
-        "mat4.h",
-        "memory.h",
-        "quat.h",
-        "vec2.h",
-        "vec3.h",
-        "vectypes.h",
-    ],
-    copts = COPTS,
-    deps = [
-        ":defs",
-        "//assets/fonts/terminus:ter-u12n",
-    ],
-)
-
-cc_library(
-    name = "base_pc",
-    srcs = [
-        "fatal_pc.c",
-    ],
-    hdrs = [
-        "system_pc.h",
-    ],
-    copts = COPTS,
-    deps = [
-        ":base",
-    ],
-)
 
 cc_library(
     name = "tool",
     srcs = [
         "die.c",
-        "pack32.c",
-        "swap16.c",
-        "swap16arr.c",
-        "swap32.c",
         "xatoi.c",
-        "xmalloc.c",
     ],
     hdrs = [
         "tool.h",
     ],
     copts = COPTS,
-    deps = [":defs"],
-)
-
-cc_test(
-    name = "console_test",
-    size = "small",
-    srcs = [
-        "console_internal.h",
-        "console_test.c",
-    ],
-    copts = COPTS,
-    visibility = ["//visibility:private"],
-    deps = [
-        ":base",
-        "//base/testlib",
-    ],
 )
