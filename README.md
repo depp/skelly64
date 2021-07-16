@@ -6,6 +6,8 @@ This is a **work in progress.** If you want to use these tools, you will need to
 
 Note that if you are looking for **ROM hacking** tools, Skelly 64 won’t help you. ROM hacking is just too different from homebrew development.
 
+Skelly 64 is licensed under the terms of the Mozilla Public License Version 2.0. See LICENSE.txt for details.
+
 ## Tools
 
 ### Audio Converter
