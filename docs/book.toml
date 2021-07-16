@@ -1,0 +1,6 @@
+[book]
+authors = ["Dietrich Epp"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Skelly 64 Manual"
