@@ -2,7 +2,7 @@
 
 Tools for Nintendo 64 homebrew game development.
 
-This is somewhat a work in progress.
+This is a **work in progress.** If you want to use these tools, you will need to be able to able to figure things out by reading the source code.
 
 Note that if you are looking for **ROM hacking** tools, Skelly 64 won’t help you. ROM hacking is just too different from homebrew development.
 
