@@ -14,7 +14,7 @@ func init() {
 	wd = os.Getenv("BUILD_WORKING_DIRECTORY")
 	if wd == "" {
 		// This is a cheesy way to get the runfiles path, but it works.
-		runfiles = filepath.Join(os.Args[0]+".runfiles", "thornmarked")
+		runfiles = filepath.Join(os.Args[0]+".runfiles", "com_github_depp_skelly64")
 	}
 }
 
