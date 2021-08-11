@@ -1,4 +1,6 @@
 site_name: Skelly 64 Documentation
+site_url: https://depp.github.io/skelly64/
+repo_url: https://github.com/depp/skelly64/
 
 markdown_extensions:
   - admonition
