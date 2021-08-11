@@ -12,7 +12,8 @@ nav:
   - Introduction: index.md
   - Building: building.md
   - Audio Converter: audio.md
-  - Font Builder: font.md
+  - Font Builder:
+    - Overview: font/index.md
   - Image Converter: image.md
   - Model Converter:
     - Overview: model.md
