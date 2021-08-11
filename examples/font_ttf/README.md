@@ -2,7 +2,19 @@
 
 This directory contains a demo for how to create a packed bitmap font from a normal TTF outline font.
 
-## Font Subset
+## Building the Bitmap Font
+
+### Bazel
+
+Run the following command in this directory:
+
+```shell
+bazel build :alegreya
+```
+
+This will create a file named `alegreya.font` and `alegreya.png` in the folder `../../bazel-bin/examples/font_ttf`,
+
+## Maintainer Notes
 
 This information is only relevant to the Skelly 64 maintainers.
 

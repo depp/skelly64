@@ -1,0 +1,22 @@
+# Space
+chars $20
+
+# Letters
+range A Z
+range a z
+
+# Numbers
+range 0 9
+
+# ASCII Punctuation
+chars . , ! ? - :
+
+# Curly quotes: single, double
+chars $2018 $2019
+chars $201c $201d
+
+# Ellipsis
+chars $2026
+
+# Em dash
+chars $2014

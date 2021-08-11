@@ -1,0 +1,12 @@
+load("//tools/font:defs.bzl", "bitmap_font")
+
+bitmap_font(
+    name = "alegreya",
+    src = "Alegreya-Medium.subset.ttf",
+    charset = "charset.txt",
+    encoding = "windows-1252",
+    font_size = "16",
+    format = "ia.8",
+    shadow = "1:1",
+    texsize = "64:64",
+)
