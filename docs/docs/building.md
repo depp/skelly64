@@ -4,11 +4,11 @@ Skelly 64 is distributed as source code, you will need to compile the tools in o
 
 ## Prerequisites
 
-- [Bazel](https://bazel.build/) 4.1.0 (You can try other versions, but you will need to change the .bazelversion file in order for other versions to work.)
-- [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/):
-- [SoX](http://sox.sourceforge.net/)
-- [AssImp](https://www.assimp.org/)
-- [FreeType](https://www.freetype.org/)
+- [Bazel](https://bazel.build/) 4.1.0. Newer version should also work.
+- [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/), used to find Assimp and FreeType.
+- [SoX](http://sox.sourceforge.net/), used to convert audio data.
+- [Assimp](https://www.assimp.org/), used to import 3D models.
+- [FreeType](https://www.freetype.org/), used to convert fonts to bitmaps.
 
 ### Debian
 

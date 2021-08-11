@@ -1,12 +1,12 @@
-# Skelly 64
+# Introduction
 
 Skelly 64 is a set of tools for creating assets for homebrew Nintendo 64 games.
 
-## These Tools Don’t Work!
+!!! warning
 
-This project is a work in progress. Skelly 64 is just not complete, or very usable yet. The tools were designed to be used in a game for the N64Brew Jam in 2020, and it will take time to document these tools, fix some bugs, and make them work for more general cases. While I’d like to make these tools usable for your project, these tools aren’t really ready yet! That’s why I’m creating these docs.
+    This project is a work in progress. Skelly 64 is just not complete, or very usable yet. The tools were designed to be used in a game for the N64Brew Jam in 2020, and it will take time to document these tools, fix some bugs, and make them work for more general cases. While I’d like to make these tools usable for your project, these tools aren’t really ready yet! That’s why I’m creating these docs.
 
-I’m looking forward to removing this section from the docs.
+    I’m looking forward to removing this section from the docs.
 
 ## Homebrew, or ROM Hack?
 
