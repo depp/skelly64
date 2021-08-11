@@ -9,3 +9,8 @@ theme:
 nav:
   - Introduction: index.md
   - Building: building.md
+  - Audio Converter: audio.md
+  - Font Builder: font.md
+  - Image Converter: image.md
+  - Model Converter: model.md
+  - ROM Tool: rom.md
