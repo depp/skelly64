@@ -12,5 +12,6 @@ nav:
   - Audio Converter: audio.md
   - Font Builder: font.md
   - Image Converter: image.md
-  - Model Converter: model.md
+  - Model Converter:
+    - Overview: model.md
   - ROM Tool: rom.md
