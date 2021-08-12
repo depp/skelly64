@@ -15,6 +15,7 @@ nav:
   - Font Builder:
     - Overview: font/index.md
     - TTF Example: font/ttf_example/index.md
+    - Bitmap Example: font/bitmap_example/index.md
   - Image Converter: image.md
   - Model Converter:
     - Overview: model.md
