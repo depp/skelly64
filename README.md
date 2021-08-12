@@ -48,7 +48,6 @@ Building requires the following prerequisites:
 - [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)
 - [SoX](http://sox.sourceforge.net/)
 - [AssImp](https://www.assimp.org/)
-- [FreeType](https://www.freetype.org/)
 
 ### Development
 

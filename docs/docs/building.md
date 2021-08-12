@@ -5,17 +5,16 @@ Skelly 64 is distributed as source code, you will need to compile the tools in o
 ## Prerequisites
 
 - [Bazel](https://bazel.build/) 4.1.0. Newer version should also work.
-- [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/), used to find Assimp and FreeType.
+- [Pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/), used to find Assimp.
 - [SoX](http://sox.sourceforge.net/), used to convert audio data.
 - [Assimp](https://www.assimp.org/), used to import 3D models.
-- [FreeType](https://www.freetype.org/), used to convert fonts to bitmaps.
 
 ### Debian
 
 To install the prerequisites on Debian, run:
 
 ```shell
-sudo apt install build-essential sox libassimp-dev libfreetype-dev
+sudo apt install build-essential sox libassimp-dev
 ```
 
 ### macOS (Homebrew)
@@ -25,7 +24,7 @@ To install the prerequisites using [Homebrew][brew] on macOS:
 [brew]: https://brew.sh/
 
 ```shell
-brew install bazel pkg-config sox assimp freetype
+brew install bazel pkg-config sox assimp
 ```
 
 ## Building and Running

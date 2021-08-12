@@ -1,0 +1,16 @@
+Index: freetype-2.11.0/include/freetype/config/ftconfig.h
+===================================================================
+--- freetype-2.11.0.orig/include/freetype/config/ftconfig.h
++++ freetype-2.11.0/include/freetype/config/ftconfig.h
+@@ -41,6 +41,11 @@
+ #include FT_CONFIG_OPTIONS_H
+ #include FT_CONFIG_STANDARD_LIBRARY_H
+ 
++#if !_WIN32
++#define HAVE_UNISTD_H 1
++#define HAVE_FCNTL_H 1
++#endif
++
+ #include <freetype/config/integer-types.h>
+ #include <freetype/config/public-macros.h>
+ #include <freetype/config/mac-support.h>

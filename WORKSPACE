@@ -9,15 +9,6 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//bazel:pkg_config.bzl", "pkg_config_repository")
 
 pkg_config_repository(
-    name = "freetype",
-    includes = [
-        "freetype/**/*.h",
-        "ft2build.h",
-    ],
-    spec = "freetype2",
-)
-
-pkg_config_repository(
     name = "assimp",
     includes = [
         "assimp/**/*.h",
@@ -84,5 +75,32 @@ http_archive(
     strip_prefix = "fmt-7.1.3",
     urls = [
         "https://github.com/fmtlib/fmt/archive/7.1.3.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "freetype",
+    build_file = "@//third_party/freetype:freetype.bazel",
+    patch_args = ["-p1"],
+    patches = [
+        "//third_party/freetype:freetype-2.11.0.patch",
+    ],
+    sha256 = "8bee39bd3968c4804b70614a0a3ad597299ad0e824bc8aad5ce8aaf48067bde7",
+    strip_prefix = "freetype-2.11.0",
+    type = "tar.xz",
+    urls = [
+        "https://sourceforge.net/projects/freetype/files/freetype2/2.11.0/freetype-2.11.0.tar.xz/download",
+        "https://download.savannah.gnu.org/releases/freetype/freetype-2.11.0.tar.xz",
+    ],
+)
+
+http_archive(
+    name = "zlib",
+    build_file = "@//third_party/zlib:zlib.bazel",
+    sha256 = "4ff941449631ace0d4d203e3483be9dbc9da454084111f97ea0a2114e19bf066",
+    strip_prefix = "zlib-1.2.11",
+    urls = [
+        "https://prdownloads.sourceforge.net/libpng/zlib-1.2.11.tar.xz?download",
+        "https://zlib.net/zlib-1.2.11.tar.xz",
     ],
 )
