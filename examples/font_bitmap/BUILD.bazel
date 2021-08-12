@@ -1,0 +1,15 @@
+genrule(
+    name = "terminus",
+    srcs = ["ter-u12n.bdf"],
+    outs = ["ter-u12n.h"],
+    cmd = (
+        "$(execpath //tools/font) " +
+        "-font=$(execpath ter-u12n.bdf) " +
+        "-font-size=12 " +
+        "-out-fallback=$@"
+    ),
+    tools = [
+        "//tools/font",
+        "//tools/font/raster",
+    ],
+)
