@@ -1,43 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/audio/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/building/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/image/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/model/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/model_format/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/rom/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>None</loc>
-         <lastmod>2021-08-11</lastmod>
+         <loc>https://depp.github.io/skelly64/font/</loc>
+         <lastmod>2021-08-12</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://depp.github.io/skelly64/font/ttf_example/</loc>
+         <lastmod>2021-08-12</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
