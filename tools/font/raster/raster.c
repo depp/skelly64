@@ -484,9 +484,14 @@ static int cmd_rasterize(int argc, char **argv) {
         if (err != 0)
             die_freetype(err, "could not load glyph %ld", i);
         FT_GlyphSlot glyph = face->glyph;
-        err = FT_Render_Glyph(glyph, render_flags);
-        if (err != 0)
-            die_freetype(err, "could not render glyph %ld", i);
+        if (glyph->format == FT_GLYPH_FORMAT_BITMAP) {
+            if (glyph->bitmap.buffer == NULL)
+                die("missing glyph bitmap for glyph %ld", i);
+        } else {
+            err = FT_Render_Glyph(glyph, render_flags);
+            if (err != 0)
+                die_freetype(err, "could not render glyph %ld", i);
+        }
         int width = glyph->bitmap.width;
         int height = glyph->bitmap.rows;
         int pitch = glyph->bitmap.pitch;
