@@ -355,6 +355,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../font/bitmap_example/" class="md-nav__link">
+        Bitmap Example
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -526,18 +538,17 @@
 <h2 id="prerequisites">Prerequisites</h2>
 <ul>
 <li><a href="https://bazel.build/">Bazel</a> 4.1.0. Newer version should also work.</li>
-<li><a href="https://www.freedesktop.org/wiki/Software/pkg-config/">Pkg-config</a>, used to find Assimp and FreeType.</li>
+<li><a href="https://www.freedesktop.org/wiki/Software/pkg-config/">Pkg-config</a>, used to find Assimp.</li>
 <li><a href="http://sox.sourceforge.net/">SoX</a>, used to convert audio data.</li>
 <li><a href="https://www.assimp.org/">Assimp</a>, used to import 3D models.</li>
-<li><a href="https://www.freetype.org/">FreeType</a>, used to convert fonts to bitmaps.</li>
 </ul>
 <h3 id="debian">Debian</h3>
 <p>To install the prerequisites on Debian, run:</p>
-<pre><code class="language-shell">sudo apt install build-essential sox libassimp-dev libfreetype-dev
+<pre><code class="language-shell">sudo apt install build-essential sox libassimp-dev
 </code></pre>
 <h3 id="macos-homebrew">macOS (Homebrew)</h3>
 <p>To install the prerequisites using <a href="https://brew.sh/">Homebrew</a> on macOS:</p>
-<pre><code class="language-shell">brew install bazel pkg-config sox assimp freetype
+<pre><code class="language-shell">brew install bazel pkg-config sox assimp
 </code></pre>
 <h2 id="building-and-running">Building and Running</h2>
 <p>You can build one of the tools by running Bazel. The first time you build a tool with Bazel, it will download some additional prerequisites, so you will need an active internet connection.</p>
