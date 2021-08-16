@@ -14,13 +14,13 @@ All values are stored in big endian. Any pointers in C structures are serialized
 
 ## Header
 
-| Offset | Type      | Description        |
-| ------ | --------- | ------------------ |
-| 0      | `byte[4]` | Magic              |
-| 16     | `uint32`  | Main data offset   |
-| 20     | `uint32`  | Main data size     |
-| 24     | `uint32`  | Vertex data offset |
-| 28     | `uint32`  | Vertex data size   |
+| Offset | Type       | Description        |
+| ------ | ---------- | ------------------ |
+| 0      | `byte[16]` | Magic              |
+| 16     | `uint32`   | Main data offset   |
+| 20     | `uint32`   | Main data size     |
+| 24     | `uint32`   | Vertex data offset |
+| 28     | `uint32`   | Vertex data size   |
 
 - The “magic” identifies this file type, and it consists of the ASCII string “Model” followed by null bytes. The remaining fields locate the other sections in the file.
 
