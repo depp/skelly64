@@ -12,24 +12,17 @@
   "[cpp]": {
     "editor.formatOnSave": true
   },
-  "[mips]": {
-    "editor.tabSize": 8,
-    "editor.insertSpaces": false
-  },
   "[json]": {
     "editor.tabSize": 2
   },
   "C_Cpp.default.includePath": [
     "${workspaceFolder}",
     "${workspaceFolder}/bazel-bin",
-    "${workspaceFolder}/sdk/include",
     "${workspaceFolder}/bazel-skelly64/external/fmt/include",
-    "/usr/include/freetype2"
+    "${workspaceFolder}/bazel-skelly64/external/freetype/include"
   ],
-  "C_Cpp.default.defines": ["_LANGUAGE_C", "F3DEX_GBI_2"],
   "files.associations": {
-    "*.h": "c",
-    "*.s": "mips"
+    "*.h": "c"
   },
   "files.exclude": {
     "bazel-*": true
