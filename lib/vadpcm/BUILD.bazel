@@ -9,6 +9,7 @@ cc_library(
         "codebook.c",
         "codebook.h",
         "decode.c",
+        "decode_sse2.c",
         "error.c",
     ],
     hdrs = [

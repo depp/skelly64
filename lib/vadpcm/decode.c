@@ -22,6 +22,9 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
                            struct vadpcm_state *restrict state,
                            size_t framecount, int16_t *restrict dest,
                            const void *restrict src) {
+    if (b->order == 2) {
+        return vadpcm_decode_sse2(b, state, framecount, dest, src);
+    }
     const uint8_t *sptr = src;
     for (size_t frame = 0; frame < framecount; frame++) {
         const uint8_t *fin = sptr + kVADPCMFrameByteSize * frame;

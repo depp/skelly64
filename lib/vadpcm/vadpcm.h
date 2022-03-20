@@ -77,6 +77,12 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *VADPCM_RESTRICT b,
                            size_t framecount, int16_t *VADPCM_RESTRICT dest,
                            const void *VADPCM_RESTRICT src);
 
+vadpcm_error vadpcm_decode_sse2(const struct vadpcm_codebook *VADPCM_RESTRICT b,
+                                struct vadpcm_state *VADPCM_RESTRICT state,
+                                size_t framecount,
+                                int16_t *VADPCM_RESTRICT dest,
+                                const void *VADPCM_RESTRICT src);
+
 #ifdef __cplusplus
 }
 #endif
