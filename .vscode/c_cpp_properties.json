@@ -1,0 +1,17 @@
+{
+  "configurations": [
+    {
+      "name": "Linux",
+      "includePath": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/bazel-bin",
+        "${workspaceFolder}/bazel-skelly64/external/fmt/include"
+      ],
+      "cppStandard": "c++17",
+      "cStandard": "c11",
+      "intelliSenseMode": "linux-clang-x64",
+      "compilerPath": "/usr/bin/clang"
+    }
+  ],
+  "version": 4
+}
