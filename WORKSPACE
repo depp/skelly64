@@ -71,10 +71,10 @@ gazelle_dependencies()
 http_archive(
     name = "fmt",
     build_file = "@//third_party/fmt:fmt.bazel",
-    sha256 = "5cae7072042b3043e12d53d50ef404bbb76949dad1de368d7f993a15c8c05ecc",
-    strip_prefix = "fmt-7.1.3",
+    sha256 = "23778bad8edba12d76e4075da06db591f3b0e3c6c04928ced4a7282ca3400e5d",
+    strip_prefix = "fmt-8.1.1",
     urls = [
-        "https://github.com/fmtlib/fmt/archive/7.1.3.tar.gz",
+        "https://github.com/fmtlib/fmt/releases/download/8.1.1/fmt-8.1.1.zip",
     ],
 )
 

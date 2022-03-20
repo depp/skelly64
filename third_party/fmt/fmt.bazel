@@ -8,6 +8,7 @@ cc_library(
         "src/os.cc",
     ],
     hdrs = [
+        "include/fmt/args.h",
         "include/fmt/chrono.h",
         "include/fmt/color.h",
         "include/fmt/compile.h",
@@ -17,9 +18,9 @@ cc_library(
         "include/fmt/locale.h",
         "include/fmt/os.h",
         "include/fmt/ostream.h",
-        "include/fmt/posix.h",
         "include/fmt/printf.h",
         "include/fmt/ranges.h",
+        "include/fmt/xchar.h",
     ],
     copts = CXXOPTS_BASE,
     includes = [
