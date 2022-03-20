@@ -26,12 +26,8 @@ cc_binary(
     copts = CXXOPTS,
     visibility = ["//visibility:public"],
     deps = [
-        "//lib/cpp:bswap",
         "//lib/cpp:expr",
-        "//lib/cpp:flag",
-        "//lib/cpp:hash",
-        "//lib/cpp:pack",
-        "//lib/cpp:quote",
+        "//lib/cpp:util",
         "@assimp",
         "@fmt",
     ],

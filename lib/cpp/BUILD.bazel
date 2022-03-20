@@ -2,50 +2,23 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//bazel:copts.bzl", "CXXOPTS")
 
 cc_library(
-    name = "quote",
-    srcs = ["quote.cpp"],
-    hdrs = ["quote.hpp"],
-    copts = CXXOPTS,
-    visibility = ["//tools:__subpackages__"],
-)
-
-cc_library(
-    name = "flag",
+    name = "util",
     srcs = [
         "flag.cpp",
+        "quote.cpp",
     ],
     hdrs = [
+        "bswap.hpp",
         "flag.hpp",
+        "hash.hpp",
+        "pack.hpp",
+        "quote.hpp",
     ],
     copts = CXXOPTS,
     visibility = ["//tools:__subpackages__"],
     deps = [
-        ":quote",
+        "@fmt",
     ],
-)
-
-cc_library(
-    name = "hash",
-    hdrs = [
-        "hash.hpp",
-    ],
-    visibility = ["//tools:__subpackages__"],
-)
-
-cc_library(
-    name = "bswap",
-    hdrs = [
-        "bswap.hpp",
-    ],
-    visibility = ["//tools:__subpackages__"],
-)
-
-cc_library(
-    name = "pack",
-    hdrs = [
-        "pack.hpp",
-    ],
-    visibility = ["//tools:__subpackages__"],
 )
 
 cc_library(
@@ -61,7 +34,7 @@ cc_library(
     copts = CXXOPTS,
     visibility = ["//tools:__subpackages__"],
     deps = [
-        ":flag",
+        ":util",
         "@fmt",
     ],
 )
