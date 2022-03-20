@@ -4,11 +4,14 @@ load("//bazel:copts.bzl", "CXXOPTS")
 cc_library(
     name = "util",
     srcs = [
+        "error.cpp",
+        "file.cpp",
         "flag.cpp",
         "quote.cpp",
     ],
     hdrs = [
         "bswap.hpp",
+        "error.hpp",
         "file.hpp",
         "flag.hpp",
         "hash.hpp",

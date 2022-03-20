@@ -1,0 +1,18 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("//bazel:copts.bzl", "CXXOPTS")
+
+cc_binary(
+    name = "vadpcmdec",
+    srcs = [
+        "aiff.cpp",
+        "aiff.hpp",
+        "vadpcmdec.cpp",
+    ],
+    copts = CXXOPTS,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//lib/cpp:util",
+        "//lib/vadpcm",
+        "@fmt",
+    ],
+)

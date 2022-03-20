@@ -1,0 +1,19 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel:copts.bzl", "COPTS")
+
+cc_library(
+    name = "vadpcm",
+    srcs = [
+        "binary.c",
+        "binary.h",
+        "codebook.c",
+        "codebook.h",
+        "decode.c",
+        "error.c",
+    ],
+    hdrs = [
+        "vadpcm.h",
+    ],
+    copts = COPTS,
+    visibility = ["//tools:__subpackages__"],
+)

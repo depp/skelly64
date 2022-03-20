@@ -2,6 +2,8 @@
 
 #include "lib/cpp/quote.hpp"
 
+#include <fmt/core.h>
+
 #include <cassert>
 #include <cstring>
 
@@ -140,11 +142,47 @@ void Parser::ParseAll(ProgramArguments &args) {
     while (!args.empty()) {
         ParseNext(args);
     }
+    if (m_position < m_positional.size()) {
+        PositionalType last_type = m_positional[m_position].type;
+        bool ok;
+        switch (last_type) {
+        case PositionalType::Required:
+            ok = false;
+            break;
+        case PositionalType::OneOrMore:
+            ok = m_has_final_arg;
+            break;
+        default:
+            ok = true;
+            break;
+        }
+        if (!ok) {
+            std::string msg =
+                fmt::format("at least {} arguments expected", MinArgs());
+            throw UsageError(msg);
+        }
+    }
+}
+
+int Parser::MinArgs() const {
+    int count = 0;
+    for (const Positional &info : m_positional) {
+        switch (info.type) {
+        case PositionalType::Optional:
+        case PositionalType::ZeroOrMore:
+            return count;
+        case PositionalType::Required:
+            count++;
+            break;
+        case PositionalType::OneOrMore:
+            count++;
+            return count;
+        }
+    }
+    return count;
 }
 
 namespace {
-
-constexpr const char *UnexpectedArgument = "unexpected argument";
 
 UsageError MakeUsageError(std::string_view msg, std::string_view arg) {
     std::string s;
@@ -163,17 +201,21 @@ void Parser::ParseNext(ProgramArguments &args) {
     }
     args.Next();
 
-    // Strip the leading - or -- (equivalent).
-    if (*p != '-') {
-        throw MakeUsageError(UnexpectedArgument, arg);
+    if (m_positional_only || *p != '-') {
+        ParsePositional(arg);
+        return;
     }
+
+    // Strip the leading - or -- (equivalent).
     p++;
     if (*p == '\0') {
-        throw MakeUsageError(UnexpectedArgument, arg);
+        ParsePositional(arg);
+        return;
     } else if (*p == '-') {
         p++;
         if (*p == '\0') {
-            throw MakeUsageError(UnexpectedArgument, arg);
+            m_positional_only = true;
+            return;
         }
     }
 
@@ -229,6 +271,23 @@ void Parser::ParseNext(ProgramArguments &args) {
     fl.Parse(value);
 }
 
+void Parser::ParsePositional(const char *arg) {
+    if (m_position >= m_positional.size()) {
+        throw MakeUsageError("unexpected argument", arg);
+    }
+    Positional &info = m_positional[m_position];
+    info.flag->Parse(std::string_view(arg));
+    switch (info.type) {
+    case PositionalType::Optional:
+    case PositionalType::Required:
+        m_position++;
+        break;
+    default:
+        m_has_final_arg = true;
+        break;
+    }
+}
+
 void Parser::AddFlagImpl(std::shared_ptr<FlagBase> flag, const char *name,
                          const char *help, const char *metavar) {
     auto r = m_flags.emplace(name, nullptr);
@@ -270,6 +329,38 @@ void Parser::AddBoolFlag(bool *value, const char *name, const char *help) {
         throw std::logic_error("duplicate flag");
     }
     r.first->second = std::move(fneg);
+}
+
+void Parser::AddPositionalImpl(std::shared_ptr<FlagBase> flag,
+                               PositionalType type, const char *name,
+                               const char *help) {
+    if (!m_positional.empty()) {
+        PositionalType last_type = m_positional.back().type;
+        switch (last_type) {
+        case PositionalType::Optional:
+            if (type == PositionalType::Required ||
+                type == PositionalType::OneOrMore) {
+                throw std::logic_error(
+                    "cannot add required positional argument after optional "
+                    "argument");
+            }
+            break;
+        case PositionalType::ZeroOrMore:
+        case PositionalType::OneOrMore:
+            throw std::logic_error(
+                "cannot add positional argument after ZeroOrMore or OneOrMore "
+                "argument");
+            break;
+        default:
+            break;
+        }
+    }
+    m_positional.push_back(Positional{
+        std::move(flag),
+        type,
+        name,
+        help,
+    });
 }
 
 } // namespace flag

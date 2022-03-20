@@ -49,6 +49,7 @@ _CXXOPTS_WARNING = [
     "-Wall",
     "-Wextra",
     "-Wpointer-arith",
+    "-Wno-multichar",
 ]
 
 # Internal C compilation options. Use this by default for all C targets in the

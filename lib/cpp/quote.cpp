@@ -11,7 +11,7 @@ const char HEX_DIGIT[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
 std::string Quote(std::string_view str) {
     std::string out;
     out.push_back('"');
-    for (const char c : str) {
+    for (const uint8_t c : str) {
         if (32 <= c && c <= 126) {
             if (c == '"' || c == '\\') {
                 out.push_back('\\');

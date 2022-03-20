@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <vector>
 
 namespace flag {
 
@@ -138,6 +139,14 @@ public:
 // Parser
 // =============================================================================
 
+// Types of positional arguments.
+enum class PositionalType {
+    Optional,
+    Required,
+    ZeroOrMore,
+    OneOrMore,
+};
+
 // Command-line argument parser.
 class Parser {
     struct Flag {
@@ -146,9 +155,22 @@ class Parser {
         std::string metavar;
     };
 
+    struct Positional {
+        std::shared_ptr<FlagBase> flag;
+        PositionalType type;
+        std::string name;
+        std::string help;
+    };
+
     std::unordered_map<std::string, std::shared_ptr<const Flag>> m_flags;
+    std::vector<Positional> m_positional;
+    std::size_t m_position;
+    bool m_positional_only;
+    bool m_has_final_arg;
 
 public:
+    Parser()
+        : m_position{0}, m_positional_only{false}, m_has_final_arg{false} {}
     ~Parser();
 
     // Add a flag to the argument parser.
@@ -156,7 +178,7 @@ public:
     void AddFlag(F &&flag, const char *name, const char *help,
                  const char *metavar = nullptr) {
         static_assert(std::is_base_of<FlagBase, F>::value,
-                      "flagmust be derived from FlagBase");
+                      "flag must be derived from FlagBase");
         AddFlagImpl(std::make_shared<F>(std::forward<F>(flag)), name, help,
                     metavar);
     }
@@ -168,12 +190,25 @@ public:
     // flag=off, and -flag=0.
     void AddBoolFlag(bool *value, const char *name, const char *help);
 
+    template <typename F>
+    void AddPositional(F &&flag, PositionalType type, const char *name,
+                       const char *help) {
+        static_assert(std::is_base_of<FlagBase, F>::value,
+                      "flag must be derived from FlagBase");
+        AddPositionalImpl(std::make_shared<F>(std::forward<F>(flag)), type,
+                          name, help);
+    }
+
     void ParseAll(ProgramArguments &args);
     void ParseNext(ProgramArguments &args);
 
 private:
     void AddFlagImpl(std::shared_ptr<FlagBase> flag, const char *name,
                      const char *help, const char *metavar);
+    void AddPositionalImpl(std::shared_ptr<FlagBase> flag, PositionalType type,
+                           const char *name, const char *help);
+    void ParsePositional(const char *arg);
+    int MinArgs() const;
 };
 
 } // namespace flag
