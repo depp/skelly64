@@ -1,5 +1,6 @@
 #include "lib/cpp/expr.hpp"
 #include "lib/cpp/expr_flag.hpp"
+#include "lib/cpp/file.hpp"
 #include "lib/cpp/flag.hpp"
 #include "lib/cpp/quote.hpp"
 #include "tools/model/compile.hpp"
@@ -40,29 +41,6 @@ public:
             throw flag::UsageError(msg);
         }
     }
-};
-
-// Wrapper for std::FILE.
-class File {
-    std::FILE *m_file;
-
-public:
-    File() : m_file{nullptr} {}
-    File(const File &) = delete;
-    File(File &&other) : m_file{other.m_file} { other.m_file = nullptr; }
-    explicit File(std::FILE *file) : m_file{file} {}
-    ~File() {
-        if (m_file != nullptr)
-            std::fclose(m_file);
-    }
-    File &operator=(const File &) = delete;
-    File &operator=(File &&other) {
-        std::swap(m_file, other.m_file);
-        return *this;
-    }
-    operator std::FILE *() { return m_file; }
-    operator bool() { return m_file != nullptr; }
-    bool operator!() { return m_file == nullptr; }
 };
 
 [[noreturn]] void FailUsage(std::string_view msg) {
@@ -182,9 +160,9 @@ void Main(int argc, char **argv) {
         cfg.scale = scale;
     }
 
-    File stats;
+    util::File stats;
     if (!args.output_stats.empty()) {
-        stats = File{std::fopen(args.output_stats.c_str(), "w")};
+        stats = util::File{std::fopen(args.output_stats.c_str(), "w")};
         if (!stats) {
             err(1, "could not open '%s'", args.output_stats.c_str());
         }
