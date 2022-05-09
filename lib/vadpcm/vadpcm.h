@@ -67,14 +67,14 @@ vadpcm_error vadpcm_read_codebook_aifc(struct vadpcm_codebook **b,
                                        const void *data, size_t size);
 
 // Decode VADPCM-encoded audio. The output array have have
-// kVADPCMFrameSampleCount * framecount elements. The input data should have
-// kVADPCMFrameByteSize * framecount bytes.
+// kVADPCMFrameSampleCount * frame_count elements. The input data should have
+// kVADPCMFrameByteSize * frame_count bytes.
 //
 // Error codes:
 //   kVADPCMErrInvalidData: Predictor index out of range.
 vadpcm_error vadpcm_decode(const struct vadpcm_codebook *VADPCM_RESTRICT b,
                            struct vadpcm_state *VADPCM_RESTRICT state,
-                           size_t framecount, int16_t *VADPCM_RESTRICT dest,
+                           size_t frame_count, int16_t *VADPCM_RESTRICT dest,
                            const void *VADPCM_RESTRICT src);
 
 #ifdef __cplusplus

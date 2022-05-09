@@ -20,10 +20,10 @@ static int vadpcm_clamp16(int x) {
 
 vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
                            struct vadpcm_state *restrict state,
-                           size_t framecount, int16_t *restrict dest,
+                           size_t frame_count, int16_t *restrict dest,
                            const void *restrict src) {
     const uint8_t *sptr = src;
-    for (size_t frame = 0; frame < framecount; frame++) {
+    for (size_t frame = 0; frame < frame_count; frame++) {
         const uint8_t *fin = sptr + kVADPCMFrameByteSize * frame;
 
         // Control byte: scaling & predictor index.
