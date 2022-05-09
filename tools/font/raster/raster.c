@@ -1,3 +1,7 @@
+// Copyright 2022 Dietrich Epp.
+// This file is part of Skelly 64. Skelly 64 is licensed under the terms of the
+// Mozilla Public License, version 2.0. See LICENSE.txt for details.
+
 // Font rasterization tool. Converts fonts to raster images. Automatically
 // figures out the correct scale for bitmap fonts and pixel fonts, and this
 // works correctly both for fonts with bitmap strikes (proper bitmap fonts) and
