@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//bazel:copts.bzl", "COPTS")
 
 cc_library(
@@ -16,4 +16,15 @@ cc_library(
     ],
     copts = COPTS,
     visibility = ["//tools:__subpackages__"],
+)
+
+cc_test(
+    name = "encode_test",
+    size = "small",
+    srcs = [
+        "encode.c",
+        "vadpcm.h",
+    ],
+    copts = COPTS,
+    defines = ["TEST"],
 )

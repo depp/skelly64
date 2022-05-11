@@ -11,7 +11,8 @@
       "cStandard": "c11",
       "intelliSenseMode": "linux-clang-x64",
       "compilerPath": "/usr/bin/clang",
-      "compilerArgs": ["-I${workspaceFolder}/bazel-skelly64/external/fmt/include"]
+      "compilerArgs": ["-I${workspaceFolder}/bazel-skelly64/external/fmt/include"],
+      "defines": ["TEST"]
     }
   ],
   "version": 4
