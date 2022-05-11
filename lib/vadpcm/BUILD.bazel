@@ -49,10 +49,17 @@ cc_test(
     name = "encode_test",
     size = "small",
     srcs = [
+        "codebook.c",
+        "codebook.h",
+        "decode.c",
         "encode.c",
+        "error.c",
         "vadpcm.h",
     ],
     copts = COPTS,
+    data = [
+        "data/sfx1.adpcm.aifc",
+    ],
     defines = ["TEST"],
     deps = [
         ":test",

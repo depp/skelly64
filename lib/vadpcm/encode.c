@@ -3,7 +3,10 @@
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
 #include "lib/vadpcm/vadpcm.h"
 
+#include "lib/vadpcm/codebook.h"
+
 #include <math.h>
+#include <string.h>
 
 // Autocorrelation is a symmetric 3x3 matrix.
 //
@@ -137,9 +140,121 @@ static void vadpcm_solve(const double corr[restrict static 6],
     coeff[!pivot] = y3;
 }
 
+static int vadpcm_getshift(int min, int max) {
+    int shift = 0;
+    while (shift < 12 && (min < -8 || 7 < max)) {
+        min >>= 1;
+        max >>= 1;
+        shift++;
+    }
+    return shift;
+}
+
+// Encode audio as VADPCM, given the assignment of each frame to a predictor.
+static void vadpcm_encode_data(
+    size_t frame_count, void *restrict dest, const int16_t *restrict src,
+    const uint8_t *restrict predictors,
+    const struct vadpcm_codebook *restrict codebook) {
+    uint8_t *destptr = dest;
+    int state[4];
+    state[0] = 0;
+    state[1] = 0;
+    for (size_t frame = 0; frame < frame_count; frame++) {
+        unsigned predictor = predictors[frame];
+        const struct vadpcm_vector *restrict pvec =
+            codebook->data + 2 * predictor;
+        int accumulator[8], s0, s1, s, a, r, min, max;
+
+        // Calculate the residual with full precision, and figure out the
+        // scaling factor necessary to encode it.
+        state[2] = src[frame * 16 + 6];
+        state[3] = src[frame * 16 + 7];
+        min = 0;
+        max = 0;
+        for (int vector = 0; vector < 2; vector++) {
+            s0 = state[vector * 2];
+            s1 = state[vector * 2 + 1];
+            for (int i = 0; i < 8; i++) {
+                accumulator[i] = (src[frame * 16 + vector * 8 + i] << 11) -
+                                 s0 * pvec[0].v[i] - s1 * pvec[1].v[i];
+            }
+            for (int i = 0; i < 8; i++) {
+                s = accumulator[i] >> 11;
+                if (s < min) {
+                    min = s;
+                }
+                if (s > max) {
+                    max = s;
+                }
+                for (int j = 0; j < 7 - i; j++) {
+                    accumulator[i + 1 + j] -= s * pvec[1].v[j];
+                }
+            }
+        }
+        int shift = vadpcm_getshift(min, max);
+
+        // Try a range of 3 shift values, and use the shift value that produces
+        // the lowest error.
+        double best_error = 0.0;
+        int min_shift = shift > 0 ? shift - 1 : 0;
+        int max_shift = shift < 12 ? shift + 1 : 12;
+        for (shift = min_shift; shift <= max_shift; shift++) {
+            uint8_t fout[8];
+            double error = 0.0;
+            s0 = state[0];
+            s1 = state[1];
+            // int bias = shift > 0 ? 1 << (shift - 1) : 0;
+            for (int vector = 0; vector < 2; vector++) {
+                for (int i = 0; i < 8; i++) {
+                    accumulator[i] = s0 * pvec[0].v[i] + s1 * pvec[1].v[i];
+                }
+                for (int i = 0; i < 8; i++) {
+                    s = src[frame * 16 + vector * 8 + i];
+                    a = accumulator[i] >> 11;
+                    // Calculate the residual, encode as 4 bits.
+                    r = (s - a) >> shift;
+                    if (r > 7) {
+                        r = 7;
+                    } else if (r < -8) {
+                        r = -8;
+                    }
+                    accumulator[i] = r;
+                    // Update state to match decoder.
+                    int sout = r << shift;
+                    for (int j = 0; j < 7 - i; j++) {
+                        accumulator[i + 1 + j] += sout * pvec[1].v[j];
+                    }
+                    sout += a;
+                    s0 = s1;
+                    s1 = sout;
+                    // Track encoding error.
+                    double serror = s - sout;
+                    error += serror * serror;
+                }
+                for (int i = 0; i < 4; i++) {
+                    fout[vector * 4 + i] = ((accumulator[2 * i] & 15) << 4) |
+                                           (accumulator[2 * i + 1] & 15);
+                }
+            }
+            if (shift == min_shift || error < best_error) {
+                destptr[frame * 9] = (shift << 4) | predictor;
+                memcpy(destptr + frame * 9 + 1, fout, 8);
+                state[2] = s0;
+                state[3] = s1;
+                best_error = error;
+            }
+        }
+        state[0] = state[2];
+        state[1] = state[3];
+    }
+}
+
 #if TEST
+#include "lib/vadpcm/test.h"
+
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #pragma GCC diagnostic ignored "-Wdouble-promotion"
 
@@ -265,11 +380,111 @@ static void test_solve(void) {
     }
 }
 
+static void print_verr(const char *name, const char *func, vadpcm_error err) {
+    const char *msg = vadpcm_error_name(err);
+    if (msg == NULL) {
+        msg = "unknown error";
+    }
+    fprintf(stderr, "error: %s %s: %s\n", name, func, msg);
+}
+
+static int vadpcm_ext4(int x) {
+    return x > 7 ? x - 16 : x;
+}
+
+static void show_raw(const char *name, const uint8_t *data) {
+    fprintf(stderr, "%s: scale = %d, predictor = %d\n%s:", name, data[0] >> 4,
+            data[0] & 15, name);
+    for (int i = 1; i < kVADPCMFrameByteSize; i++) {
+        fprintf(stderr, "%8d%8d", vadpcm_ext4(data[i] >> 4),
+                vadpcm_ext4(data[i] & 15));
+    }
+    fputc('\n', stderr);
+}
+
+static void test_reencode(const char *name) {
+    // Take a VADPCM file. Decode it, then reencode it with the same codebook,
+    // and then decode it again. The decoded PCM data should match.
+    struct aiff adpcm;
+    struct vadpcm_codebook *b = NULL;
+    int16_t *pcm1 = NULL, *pcm2 = NULL;
+    uint8_t *adpcm2 = NULL;
+    uint8_t *predictors = NULL;
+
+    read_aiff_vadpcm(&adpcm, name);
+    vadpcm_error err =
+        vadpcm_read_codebook_aifc(&b, adpcm.codebook, adpcm.codebook_size);
+    if (err != 0) {
+        print_verr(name, "read_codebook", err);
+        did_fail = true;
+        goto done;
+    }
+    size_t frame_count = adpcm.audio_size / kVADPCMFrameByteSize;
+    if (frame_count == 0) {
+        fprintf(stderr, "error: reencode %s: no frames\n", name);
+        did_fail = true;
+        goto done;
+    }
+    pcm1 = xmalloc(kVADPCMFrameSampleCount * sizeof(int16_t) * frame_count);
+    struct vadpcm_state state;
+    memset(&state, 0, sizeof(state));
+    err = vadpcm_decode(b, &state, frame_count, pcm1, adpcm.audio);
+    if (err != 0) {
+        print_verr(name, "decode (first)", err);
+        did_fail = true;
+        goto done;
+    }
+    predictors = xmalloc(frame_count);
+    for (size_t frame = 0; frame < frame_count; frame++) {
+        predictors[frame] =
+            ((const uint8_t *)adpcm.audio)[kVADPCMFrameByteSize * frame] & 15;
+    }
+    adpcm2 = xmalloc(kVADPCMFrameByteSize * frame_count);
+    vadpcm_encode_data(frame_count, adpcm2, pcm1, predictors, b);
+    pcm2 = xmalloc(kVADPCMFrameSampleCount * sizeof(int16_t) * frame_count);
+    memset(&state, 0, sizeof(state));
+    err = vadpcm_decode(b, &state, frame_count, pcm2, adpcm2);
+    if (err != 0) {
+        print_verr(name, "decode (second)", err);
+        did_fail = true;
+        goto done;
+    }
+    for (size_t i = 0; i < frame_count * kVADPCMFrameSampleCount; i++) {
+        if (pcm1[i] != pcm2[i]) {
+            fprintf(stderr,
+                    "error: reencode %s: output does not match, "
+                    "index = %zu\n",
+                    name, i);
+            size_t frame = i / kVADPCMFrameSampleCount;
+            fputs("vadpcm:\n", stderr);
+            show_raw("raw", (const uint8_t *)adpcm.audio +
+                                kVADPCMFrameByteSize * frame);
+            show_raw("out", adpcm2 + kVADPCMFrameByteSize * frame);
+            fputs("pcm:\n", stderr);
+            show_pcm_diff(pcm1 + frame * kVADPCMFrameSampleCount,
+                          pcm2 + frame * kVADPCMFrameSampleCount);
+            did_fail = true;
+            goto done;
+        }
+    }
+
+done:
+    free(adpcm.data.data);
+    free(b);
+    free(pcm1);
+    free(pcm2);
+    free(adpcm2);
+    free(predictors);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
     test_autocorr();
     test_solve();
+    for (int i = 0; kAIFFNames[i] != NULL; i++) {
+        test_reencode(kAIFFNames[i]);
+    }
     return did_fail ? 1 : 0;
 }
 
