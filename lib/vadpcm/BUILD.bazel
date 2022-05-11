@@ -28,3 +28,15 @@ cc_test(
     copts = COPTS,
     defines = ["TEST"],
 )
+
+cc_test(
+    name = "decode_test",
+    size = "small",
+    srcs = ["decode_test.c"],
+    copts = COPTS,
+    data = [
+        "data/sfx1.adpcm.aifc",
+        "data/sfx1.pcm.aiff",
+    ],
+    deps = [":vadpcm"],
+)
