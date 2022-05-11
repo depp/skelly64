@@ -13,16 +13,44 @@
 // [_ 2 4]
 // [_ _ 5]
 
+// Calculate the autocorrelation matrix for each frame.
+static void vadpcm_autocorr(size_t frame_count, float (*restrict corr)[6],
+                            const int16_t *restrict src) {
+    float x0 = 0.0f, x1 = 0.0f, x2 = 0.0f, m[6];
+    size_t frame;
+    int i;
+
+    for (frame = 0; frame < frame_count; frame++) {
+        for (i = 0; i < 6; i++) {
+            m[i] = 0.0f;
+        }
+        for (i = 0; i < kVADPCMFrameSampleCount; i++) {
+            x2 = x1;
+            x1 = x0;
+            x0 = src[frame * kVADPCMFrameSampleCount + i] * (1.0f / 32768.0f);
+            m[0] += x0 * x0;
+            m[1] += x1 * x0;
+            m[2] += x1 * x1;
+            m[3] += x2 * x0;
+            m[4] += x2 * x1;
+            m[5] += x2 * x2;
+        }
+        for (int i = 0; i < 6; i++) {
+            corr[frame][i] = m[i];
+        }
+    }
+}
+
 // Calculate the square error, given an autocorrelation matrix and predictor
 // coefficients.
 static float vadpcm_eval(const float corr[restrict static 6],
                          const float coeff[restrict static 2]) {
-    return corr[0] +                       //
-           corr[2] * coeff[0] * coeff[0] + //
-           corr[5] * coeff[1] * coeff[1] + //
-           2.0f * (corr[1] * coeff[0] +    //
-                   corr[3] * coeff[1] +    //
-                   corr[4] * coeff[0] * coeff[1]);
+    return corr[0] +                               //
+           corr[2] * coeff[0] * coeff[0] +         //
+           corr[5] * coeff[1] * coeff[1] +         //
+           2.0f * (corr[4] * coeff[0] * coeff[1] - //
+                   corr[1] * coeff[0] -            //
+                   corr[3] * coeff[1]);
 }
 
 // Calculate the predictor coefficients, given an autocorrelation matrix. The
@@ -64,8 +92,8 @@ static void vadpcm_solve(const double corr[restrict static 6],
     double a = corr[2];
     double b = corr[4];
     double c = corr[5];
-    double x = -corr[1];
-    double y = -corr[3];
+    double x = corr[1];
+    double y = corr[3];
 
     // Partial pivoting. Note that a, c are non-negative.
     int pivot = c > a;
@@ -113,7 +141,72 @@ static void vadpcm_solve(const double corr[restrict static 6],
 #include <stdbool.h>
 #include <stdio.h>
 
+#pragma GCC diagnostic ignored "-Wdouble-promotion"
+
 static bool did_fail;
+
+static void test_autocorr(void) {
+    // Check that the error for a set of coefficients can be calculated using
+    // the autocorrelation matrix.
+    static const float coeff[2] = {0.5f, 0.25f};
+
+    // Computationally Easy, Spectrally Good Multipliers for Congruential
+    // Pseudorandom Number Generators, Steele and Vigna, Table 7, p.18
+    const uint32_t a = 0xd9f5;
+    const uint32_t c = 0x6487ed51; // pi << 29.
+    uint32_t state = 1;
+    int failures = 0;
+    for (int test = 0; test < 10; test++) {
+        // Generate some random data.
+        int16_t data[kVADPCMFrameSampleCount * 2];
+        for (int i = 0; i < kVADPCMFrameSampleCount * 2; i++) {
+            data[i] = 0;
+        }
+        for (int i = 0; i <= 4; i++) {
+            int n = (kVADPCMFrameSampleCount * 2) >> i;
+            int m = 1 << i;
+            for (int j = 0; j < n; j++) {
+                // Random number in -2^13..2^13-1.
+                int s = (int)(state >> 19) - (1 << 12);
+                state = state * a + c;
+                for (int k = 0; k < m; k++) {
+                    data[j * m + k] += s;
+                }
+            }
+        }
+
+        // Get the autocorrelation.
+        float corr[2][6];
+        vadpcm_autocorr(2, corr, data);
+
+        // Calculate error directly.
+        float s1 = (float)data[kVADPCMFrameSampleCount - 2] * (1.0f / 32768.0f);
+        float s2 = (float)data[kVADPCMFrameSampleCount - 1] * (1.0f / 32768.0f);
+        float error = 0;
+        for (int i = 0; i < kVADPCMFrameSampleCount; i++) {
+            float s = data[kVADPCMFrameSampleCount + i] * (1.0 / 32768.0);
+            float d = s - coeff[1] * s1 - coeff[0] * s2;
+            error += d * d;
+            s1 = s2;
+            s2 = s;
+        }
+
+        // Calculate error from autocorrelation matrix.
+        float eval = vadpcm_eval(corr[1], coeff);
+
+        if (fabsf(error - eval) > (error + eval) * 1.0e-4f) {
+            fprintf(stderr,
+                    "test_autororr case %d: "
+                    "error = %f, eval = %f, relative error = %f\n",
+                    test, error, eval, fabsf(error - eval) / (error + eval));
+            failures++;
+        }
+    }
+    if (failures > 0) {
+        fprintf(stderr, "test_autocorr failures: %d\n", failures);
+        did_fail = true;
+    }
+}
 
 static void test_solve(void) {
     // Check that vadpcm_solve minimizes vadpcm_eval.
@@ -175,6 +268,7 @@ static void test_solve(void) {
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
+    test_autocorr();
     test_solve();
     return did_fail ? 1 : 0;
 }
