@@ -14,7 +14,7 @@ const char *vadpcm_error_name(vadpcm_error err) {
     case kVADPCMErrLargeOrder:
         return "predictor order too large";
     case kVADPCMErrUnknownVersion:
-        return "unknnown VADPCM version";
+        return "unknown VADPCM version";
     }
     return 0;
 }
