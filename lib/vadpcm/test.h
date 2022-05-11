@@ -30,3 +30,12 @@ void read_file(struct filedata *data, const char *path);
 // Read an AIFF or AIFC file into memory and extract the pointers to the
 // codebook (if present) and audio data. Anything else in the file is ignored.
 void read_aiff(struct aiff *aiff, const char *path);
+
+// NULL-terminated base names of AIFF files with test data.
+extern const char *const kAIFFNames[];
+
+// Read the AIFF file with PCM data for the given base name.
+void read_aiff_pcm(struct aiff *aiff, const char *name);
+
+// Read the AIFF file with VADPCM data for the given base name.
+void read_aiff_vadpcm(struct aiff *aiff, const char *name);

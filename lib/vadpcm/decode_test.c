@@ -28,14 +28,11 @@ static void print_frame(const char *name, const int16_t *ptr) {
 }
 
 static void test_decode(const char *name) {
-    char path[256];
     struct aiff adpcm, pcm;
     int16_t *ref_pcm = NULL, *out_pcm = NULL;
     struct vadpcm_codebook *b = NULL;
-    snprintf(path, sizeof(path), "lib/vadpcm/data/%s.adpcm.aifc", name);
-    read_aiff(&adpcm, path);
-    snprintf(path, sizeof(path), "lib/vadpcm/data/%s.pcm.aiff", name);
-    read_aiff(&pcm, path);
+    read_aiff_vadpcm(&adpcm, name);
+    read_aiff_pcm(&pcm, name);
 
     size_t frame_count = adpcm.audio_size / kVADPCMFrameByteSize;
     size_t sample_count = pcm.audio_size / 2;
@@ -91,6 +88,8 @@ done:
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
-    test_decode("sfx1");
+    for (int i = 0; kAIFFNames[i] != NULL; i++) {
+        test_decode(kAIFFNames[i]);
+    }
     return did_fail ? 1 : 0;
 }

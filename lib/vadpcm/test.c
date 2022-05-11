@@ -113,3 +113,20 @@ void read_aiff(struct aiff *aiff, const char *path) {
         read_fail(path, "no audio");
     }
 }
+
+const char *const kAIFFNames[] = {
+    "sfx1",
+    NULL,
+};
+
+void read_aiff_pcm(struct aiff *aiff, const char *name) {
+    char path[128];
+    snprintf(path, sizeof(path), "lib/vadpcm/data/%s.pcm.aiff", name);
+    read_aiff(aiff, path);
+}
+
+void read_aiff_vadpcm(struct aiff *aiff, const char *name) {
+    char path[128];
+    snprintf(path, sizeof(path), "lib/vadpcm/data/%s.adpcm.aifc", name);
+    read_aiff(aiff, path);
+}
