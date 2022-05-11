@@ -130,3 +130,36 @@ void read_aiff_vadpcm(struct aiff *aiff, const char *name) {
     snprintf(path, sizeof(path), "lib/vadpcm/data/%s.adpcm.aifc", name);
     read_aiff(aiff, path);
 }
+
+static void print_frame(const int16_t *ptr) {
+    for (int i = 0; i < 16; i++) {
+        fprintf(stderr, "%8d", ptr[i]);
+    }
+}
+
+void show_pcm_diff(const int16_t *ref, const int16_t *out) {
+    fputs("ref:", stderr);
+    print_frame(ref);
+    fputc('\n', stderr);
+
+    fputs("out:", stderr);
+    print_frame(out);
+    fputc('\n', stderr);
+
+    int pos = 0;
+    for (int i = 0; i < 16; i++) {
+        if (ref[i] != out[i]) {
+            int col = 4 + 8 * i;
+            while (pos < col) {
+                fputc(' ', stderr);
+                pos++;
+            }
+            col += 8;
+            while (pos < col) {
+                fputc('^', stderr);
+                pos++;
+            }
+        }
+    }
+    fputc('\n', stderr);
+}

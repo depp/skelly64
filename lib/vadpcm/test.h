@@ -39,3 +39,7 @@ void read_aiff_pcm(struct aiff *aiff, const char *name);
 
 // Read the AIFF file with VADPCM data for the given base name.
 void read_aiff_vadpcm(struct aiff *aiff, const char *name);
+
+// Print a frame of audio data, compared against a reference. The reference data
+// comes first.
+void show_pcm_diff(const int16_t *ref, const int16_t *out);

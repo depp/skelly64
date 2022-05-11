@@ -19,14 +19,6 @@ static void print_verr(const char *name, const char *func, vadpcm_error err) {
     fprintf(stderr, "error: %s %s: %s\n", name, func, msg);
 }
 
-static void print_frame(const char *name, const int16_t *ptr) {
-    fprintf(stderr, "%s:", name);
-    for (int i = 0; i < kVADPCMFrameSampleCount; i++) {
-        fprintf(stderr, "%8d", ptr[i]);
-    }
-    fputc('\n', stderr);
-}
-
 static void test_decode(const char *name) {
     struct aiff adpcm, pcm;
     int16_t *ref_pcm = NULL, *out_pcm = NULL;
@@ -66,12 +58,12 @@ static void test_decode(const char *name) {
     for (size_t i = 0; i < sample_count; i++) {
         if (ref_pcm[i] != out_pcm[i]) {
             fprintf(stderr,
-                    "error: decoder output does not match, "
+                    "error: decode %s: output does not match, "
                     "index = %zu\n",
-                    i);
+                    name, i);
             size_t frame = i / kVADPCMFrameSampleCount;
-            print_frame("ref", ref_pcm + frame * kVADPCMFrameSampleCount);
-            print_frame("out", out_pcm + frame * kVADPCMFrameSampleCount);
+            show_pcm_diff(ref_pcm + frame * kVADPCMFrameSampleCount,
+                          out_pcm + frame * kVADPCMFrameSampleCount);
             did_fail = true;
             goto done;
         }
