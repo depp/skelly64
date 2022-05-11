@@ -2,10 +2,19 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//bazel:copts.bzl", "COPTS")
 
 cc_library(
-    name = "vadpcm",
+    name = "binary",
     srcs = [
         "binary.c",
+    ],
+    hdrs = [
         "binary.h",
+    ],
+    copts = COPTS,
+)
+
+cc_library(
+    name = "vadpcm",
+    srcs = [
         "codebook.c",
         "codebook.h",
         "decode.c",
@@ -16,6 +25,9 @@ cc_library(
     ],
     copts = COPTS,
     visibility = ["//tools:__subpackages__"],
+    deps = [
+        ":binary",
+    ],
 )
 
 cc_library(
@@ -25,12 +37,11 @@ cc_library(
         "test.c",
     ],
     hdrs = [
-        "binary.h",
         "test.h",
     ],
     copts = COPTS,
     deps = [
-        ":vadpcm",
+        ":binary",
     ],
 )
 
@@ -43,6 +54,9 @@ cc_test(
     ],
     copts = COPTS,
     defines = ["TEST"],
+    deps = [
+        ":test",
+    ],
 )
 
 cc_test(
