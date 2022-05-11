@@ -18,6 +18,22 @@ cc_library(
     visibility = ["//tools:__subpackages__"],
 )
 
+cc_library(
+    name = "test",
+    testonly = True,
+    srcs = [
+        "test.c",
+    ],
+    hdrs = [
+        "binary.h",
+        "test.h",
+    ],
+    copts = COPTS,
+    deps = [
+        ":vadpcm",
+    ],
+)
+
 cc_test(
     name = "encode_test",
     size = "small",
@@ -38,5 +54,8 @@ cc_test(
         "data/sfx1.adpcm.aifc",
         "data/sfx1.pcm.aiff",
     ],
-    deps = [":vadpcm"],
+    deps = [
+        ":test",
+        ":vadpcm",
+    ],
 )
