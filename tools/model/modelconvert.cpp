@@ -75,6 +75,11 @@ void FixPath(std::string *path, std::string_view wd) {
     *path = std::move(result);
 }
 
+void Help(FILE *fp, flag::Parser &fl) {
+    std::fputs("Usage: model -model=<model.fbx> -scale=<expr>\n\n", fp);
+    fl.OptionHelp(fp);
+}
+
 Args ParseArgs(int argc, char **argv) {
     std::string wd;
     {
@@ -87,6 +92,7 @@ Args ParseArgs(int argc, char **argv) {
     args.config.texcoord_bits = 11;
     args.variable_name = "kModel";
     flag::Parser fl;
+    fl.SetHelp(Help);
     fl.AddFlag(flag::String(&args.model), "model", "input model file", "FILE");
     fl.AddFlag(flag::String(&args.output), "output", "output data file",
                "FILE");

@@ -7,6 +7,7 @@
 
 #include <fmt/core.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstring>
 
@@ -17,6 +18,10 @@ UsageError::UsageError(const char *what) : std::runtime_error{what} {}
 
 FlagBase::~FlagBase() {}
 
+const char *FlagBase::MetaVar() const {
+    return nullptr;
+}
+
 // =============================================================================
 
 FlagArgument String::Argument() const {
@@ -25,6 +30,9 @@ FlagArgument String::Argument() const {
 void String::Parse(std::optional<std::string_view> arg) {
     assert(arg.has_value());
     *m_ptr = *arg;
+}
+const char *String::MetaVar() const {
+    return "string";
 }
 
 // =============================================================================
@@ -46,6 +54,9 @@ void Int::Parse(std::optional<std::string_view> arg) {
         throw UsageError("expected an integer");
     }
     *m_ptr = value;
+}
+const char *Int::MetaVar() const {
+    return "integer";
 }
 
 // =============================================================================
@@ -70,6 +81,9 @@ void Float32::Parse(std::optional<std::string_view> arg) {
     }
     *m_ptr = value;
 }
+const char *Float32::MetaVar() const {
+    return "number";
+}
 
 // =============================================================================
 
@@ -92,6 +106,9 @@ void Float64::Parse(std::optional<std::string_view> arg) {
         throw UsageError("expected a floating-point value");
     }
     *m_ptr = value;
+}
+const char *Float64::MetaVar() const {
+    return "number";
 }
 
 // =============================================================================
@@ -140,6 +157,66 @@ public:
 // =============================================================================
 
 Parser::~Parser() {}
+
+void Parser::OptionHelp(FILE *fp) {
+    struct Entry {
+        std::string key;
+        std::string usage;
+        std::string usage_neg;
+        std::string help;
+    };
+    std::vector<Entry> flags;
+    for (const auto &it : m_flags) {
+        const Flag *flag = it.second.get();
+        if (!flag->help.empty()) {
+            std::string_view name = it.first;
+            std::string usage = "-";
+            usage.append(name);
+            std::string usage_neg;
+            if (dynamic_cast<Bool *>(flag->flag.get()) != nullptr) {
+                usage_neg = "-no-";
+                usage_neg.append(name);
+            } else {
+                FlagArgument arg = flag->flag->Argument();
+                if (arg != FlagArgument::None) {
+                    if (arg == FlagArgument::Optional) {
+                        usage.push_back('[');
+                    }
+                    usage.append("=<");
+                    if (!flag->metavar.empty()) {
+                        usage.append(flag->metavar);
+                    } else {
+                        usage.append("value");
+                    }
+                    usage.push_back('>');
+                    if (arg == FlagArgument::Optional) {
+                        usage.push_back(']');
+                    }
+                }
+            }
+            flags.push_back(Entry{
+                std::string(name),
+                std::move(usage),
+                std::move(usage_neg),
+                it.second->help,
+            });
+        }
+    }
+    size_t width = 0;
+    for (const Entry &e : flags) {
+        width = std::max(width, e.usage.size());
+        width = std::max(width, e.usage_neg.size());
+    }
+    std::sort(
+        std::begin(flags), std::end(flags),
+        [](const Entry &x, const Entry &y) -> bool { return x.key < y.key; });
+    for (const Entry &e : flags) {
+        fmt::print(fp, "  {:<{}}  {}\n", e.usage, width, e.help);
+        if (!e.usage_neg.empty()) {
+            fmt::print(fp, "  {}\n", e.usage_neg);
+        }
+    }
+}
 
 void Parser::ParseAll(ProgramArguments &args) {
     while (!args.empty()) {
@@ -240,6 +317,10 @@ void Parser::ParseNext(ProgramArguments &args) {
     // Find the flag description.
     auto it = m_flags.find(std::string(name));
     if (it == m_flags.end()) {
+        if (m_helpfn != nullptr && (name == "h" || name == "help")) {
+            m_helpfn(stdout, *this);
+            std::exit(0);
+        }
         std::string flag = "-";
         flag.append(name);
         throw MakeUsageError("unknown flag", flag);
@@ -299,12 +380,20 @@ void Parser::AddFlagImpl(std::shared_ptr<FlagBase> flag, const char *name,
     }
     std::shared_ptr<Flag> fp{std::make_shared<Flag>()};
     Flag &f = *fp;
+    if (flag->Argument() != FlagArgument::None) {
+        if (metavar != nullptr) {
+            f.metavar.assign(metavar);
+        } else {
+            const char *default_metavar = flag->MetaVar();
+            if (default_metavar == nullptr) {
+                default_metavar = "value";
+            }
+            f.metavar.assign(default_metavar);
+        }
+    }
     f.flag = std::move(flag);
     if (help != nullptr) {
         f.help.assign(help);
-    }
-    if (metavar != nullptr) {
-        f.metavar.assign(metavar);
     }
     r.first->second = std::move(fp);
 }

@@ -2,6 +2,7 @@
 // This file is part of Skelly 64. Skelly 64 is licensed under the terms of the
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
 #pragma once
+#include <cstdio>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -74,6 +75,7 @@ class FlagBase {
 public:
     virtual ~FlagBase();
     virtual FlagArgument Argument() const = 0;
+    virtual const char *MetaVar() const;
     virtual void Parse(std::optional<std::string_view> arg) = 0;
 };
 
@@ -85,6 +87,7 @@ public:
     explicit String(std::string *value) : m_ptr{value} {}
 
     FlagArgument Argument() const override;
+    const char *MetaVar() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
@@ -96,6 +99,7 @@ public:
     explicit Int(int *ptr) : m_ptr{ptr} {}
 
     FlagArgument Argument() const override;
+    const char *MetaVar() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
@@ -107,6 +111,7 @@ public:
     explicit Float32(float *value) : m_ptr{value} {}
 
     FlagArgument Argument() const override;
+    const char *MetaVar() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
@@ -118,6 +123,7 @@ public:
     explicit Float64(double *value) : m_ptr{value} {}
 
     FlagArgument Argument() const override;
+    const char *MetaVar() const override;
     void Parse(std::optional<std::string_view> arg) override;
 };
 
@@ -170,11 +176,22 @@ class Parser {
     std::size_t m_position;
     bool m_positional_only;
     bool m_has_final_arg;
+    void (*m_helpfn)(FILE *fp, Parser &fl);
 
 public:
     Parser()
-        : m_position{0}, m_positional_only{false}, m_has_final_arg{false} {}
+        : m_position{0},
+          m_positional_only{false},
+          m_has_final_arg{false},
+          m_helpfn{nullptr} {}
     ~Parser();
+
+    // Set the help function. If the function is set, -h and -help will call
+    // this function and then exit the program with status 0.
+    void SetHelp(void (*help)(FILE *fp, Parser &fl)) { m_helpfn = help; }
+
+    // Print option help.
+    void OptionHelp(FILE *fp);
 
     // Add a flag to the argument parser.
     template <typename F>
