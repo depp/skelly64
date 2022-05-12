@@ -46,11 +46,6 @@ public:
     }
 };
 
-[[noreturn]] void FailUsage(std::string_view msg) {
-    fmt::print(stderr, "Error: {}\n", msg);
-    std::exit(64);
-}
-
 struct Args {
     std::string model;
     std::string output;
@@ -122,15 +117,15 @@ Args ParseArgs(int argc, char **argv) {
     flag::ProgramArguments prog_args{argc - 1, argv + 1};
     try {
         fl.ParseAll(prog_args);
-    } catch (flag::UsageError &ex) { FailUsage(ex.what()); }
+    } catch (flag::UsageError &ex) { flag::FailUsage(ex.what()); }
     if (args.model.empty()) {
-        FailUsage("missing required flag -model");
+        flag::FailUsage("missing required flag -model");
     }
     FixPath(&args.model, wd);
     FixPath(&args.output, wd);
     FixPath(&args.output_stats, wd);
     if (!args.scale) {
-        FailUsage("missing required flag -scale");
+        flag::FailUsage("missing required flag -scale");
     }
     return args;
 }

@@ -13,6 +13,9 @@
 
 namespace flag {
 
+// Print an error message to the console and exit the program with status 2.
+[[noreturn]] void FailUsage(std::string_view msg);
+
 // =============================================================================
 // ProgramArguments
 // =============================================================================

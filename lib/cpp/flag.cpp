@@ -3,15 +3,24 @@
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
 #include "lib/cpp/flag.hpp"
 
+#include "lib/cpp/log.hpp"
 #include "lib/cpp/quote.hpp"
 
 #include <fmt/core.h>
 
 #include <algorithm>
 #include <cassert>
+#include <cstdlib>
 #include <cstring>
 
 namespace flag {
+
+[[noreturn]] void FailUsage(std::string_view msg) {
+    util::Err(msg);
+    std::exit(2);
+}
+
+// =============================================================================
 
 UsageError::UsageError(const std::string &what) : std::runtime_error{what} {}
 UsageError::UsageError(const char *what) : std::runtime_error{what} {}
