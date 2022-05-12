@@ -5,6 +5,7 @@
 #include "lib/cpp/expr_flag.hpp"
 #include "lib/cpp/file.hpp"
 #include "lib/cpp/flag.hpp"
+#include "lib/cpp/log.hpp"
 #include "lib/cpp/quote.hpp"
 #include "tools/model/compile.hpp"
 #include "tools/model/config.hpp"
@@ -21,6 +22,8 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <fmt/core.h>
+
+using util::Err;
 
 namespace modelconvert {
 namespace {
@@ -156,8 +159,8 @@ void Main(int argc, char **argv) {
         }
         double scale = args.scale->Eval(env);
         if (!std::isfinite(scale) || scale <= 0) {
-            fmt::print(stderr, "Error: scale must be a positive number\n");
-            std::exit(1);
+            Err("scale is not a positive number; scale = {}", scale);
+            std::exit(2);
         }
         cfg.scale = scale;
     }
@@ -184,8 +187,8 @@ void Main(int argc, char **argv) {
     const aiScene *scene = importer.ReadFile(
         args.model, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
     if (scene == nullptr) {
-        fmt::print(stderr, "Error: could not import {}: {}\n",
-                   util::Quote(args.model), importer.GetErrorString());
+        Err("could not import {}: {}", util::Quote(args.model),
+            importer.GetErrorString());
         std::exit(1);
     }
 
