@@ -2,11 +2,13 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//bazel:copts.bzl", "CXXOPTS")
 
 cc_binary(
-    name = "vadpcmdec",
+    name = "vadpcm",
     srcs = [
         "aiff.cpp",
         "aiff.hpp",
         "decode.cpp",
+        "defs.hpp",
+        "main.cpp",
     ],
     copts = CXXOPTS,
     visibility = ["//visibility:public"],

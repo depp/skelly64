@@ -34,6 +34,19 @@ struct Args {
     std::string output;
 };
 
+void Help(FILE *fp, flag::Parser &fl) {
+    std::fputs("Usage: vadpcm decode <input.aifc> <output>\n\n", fp);
+    fl.OptionHelp(fp);
+}
+
+void InitFlagParser(Args &args, flag::Parser &fl) {
+    fl.SetHelp(Help);
+    fl.AddPositional(flag::String(&args.input), flag::PositionalType::Required,
+                     "input", "input AIFC file");
+    fl.AddPositional(flag::String(&args.output), flag::PositionalType::Required,
+                     "output", "output AIFF or AIFC file");
+}
+
 Args ParseArgs(int argc, char **argv) {
     std::string wd;
     {
@@ -44,11 +57,8 @@ Args ParseArgs(int argc, char **argv) {
     }
     Args args{};
     flag::Parser fl;
-    fl.AddPositional(flag::String(&args.input), flag::PositionalType::Required,
-                     "input", "input AIFC file");
-    fl.AddPositional(flag::String(&args.output), flag::PositionalType::Required,
-                     "output", "output AIFC file");
-    flag::ProgramArguments prog_args{argc - 1, argv + 1};
+    InitFlagParser(args, fl);
+    flag::ProgramArguments prog_args{argc, argv};
     try {
         fl.ParseAll(prog_args);
     } catch (flag::UsageError &ex) {
@@ -77,7 +87,9 @@ Format FormatForPath(std::string_view path) {
     return ext == ".aifc" ? Format::AIFC : Format::AIFF;
 }
 
-void Main(int argc, char **argv) {
+} // namespace
+
+int DecodeMain(int argc, char **argv) {
     Args args = ParseArgs(argc, argv);
 
     Format out_format = FormatForPath(args.output);
@@ -222,17 +234,14 @@ void Main(int argc, char **argv) {
         }
     }
     output.Commit();
-}
-
-} // namespace
-} // namespace vadpcm
-
-int main(int argc, char **argv) {
-    try {
-        vadpcm::Main(argc, argv);
-    } catch (Error &e) {
-        Err("{}", e.what());
-        std::exit(1);
-    }
     return 0;
 }
+
+void DecodeHelp(FILE *fp) {
+    Args args{};
+    flag::Parser fl;
+    InitFlagParser(args, fl);
+    Help(fp, fl);
+}
+
+} // namespace vadpcm
