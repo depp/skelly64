@@ -16,41 +16,8 @@ namespace flag {
 // Print an error message to the console and exit the program with status 2.
 [[noreturn]] void FailUsage(std::string_view msg);
 
-// =============================================================================
-// ProgramArguments
-// =============================================================================
-
 // The arguments passed to a program.
-class ProgramArguments {
-    int m_pos;
-    int m_argc;
-    char **m_argv;
-
-public:
-    // Create an invalid program arguments object.
-    ProgramArguments() = default;
-
-    // Create a program arguments object.
-    ProgramArguments(int argc, char **argv)
-        : m_pos{0}, m_argc{argc}, m_argv{argv} {}
-
-    // Get the current argument.  Return nullptr if and only if the end is
-    // reached.
-    const char *arg() { return m_argv[m_pos]; }
-
-    // Advance to the next argument.  Must not be called after the end is
-    // reached.
-    void Next() { m_pos++; }
-
-    // Get the number of remaining arguments.
-    int argc() const { return m_argc - m_pos; }
-
-    // Get the remaining arguments.
-    char **argv() const { return m_argv + m_pos; }
-
-    // Return true if there are no more arguments in the set.
-    bool empty() const { return m_pos >= m_argc; }
-};
+class ProgramArguments;
 
 // =============================================================================
 // Exception
@@ -77,8 +44,14 @@ enum class FlagArgument {
 class FlagBase {
 public:
     virtual ~FlagBase();
+
+    // Return whether this flag has an argument.
     virtual FlagArgument Argument() const = 0;
+
+    // Default metavar for flags of this type.
     virtual const char *MetaVar() const;
+
+    // Parse the flag. Throw UsageError if the flag or flag argument is invalid.
     virtual void Parse(std::optional<std::string_view> arg) = 0;
 };
 
@@ -222,10 +195,18 @@ public:
                           name, help);
     }
 
+    // Parse all command-line arguments. Logs an error and exits with status 2
+    // if there are any problems with the arguments. The arguments passed in
+    // here should not include the program name.
+    void Parse(int argc, char **argv);
+
+    // Parse all command-line arguments, including the program name.
+    void ParseMain(int argc, char **argv);
+
+private:
     void ParseAll(ProgramArguments &args);
     void ParseNext(ProgramArguments &args);
 
-private:
     void AddFlagImpl(std::shared_ptr<FlagBase> flag, const char *name,
                      const char *help, const char *metavar);
     void AddPositionalImpl(std::shared_ptr<FlagBase> flag, PositionalType type,

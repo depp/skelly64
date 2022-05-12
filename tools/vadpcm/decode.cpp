@@ -59,13 +59,7 @@ Args ParseArgs(int argc, char **argv) {
     Args args{};
     flag::Parser fl;
     InitFlagParser(args, fl);
-    flag::ProgramArguments prog_args{argc, argv};
-    try {
-        fl.ParseAll(prog_args);
-    } catch (flag::UsageError &ex) {
-        Err("{}", ex.what());
-        std::exit(2);
-    }
+    fl.Parse(argc, argv);
     return args;
 }
 

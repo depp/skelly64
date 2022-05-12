@@ -22,6 +22,39 @@ namespace flag {
 
 // =============================================================================
 
+class ProgramArguments {
+    int m_pos;
+    int m_argc;
+    char **m_argv;
+
+public:
+    // Create an invalid program arguments object.
+    ProgramArguments() = default;
+
+    // Create a program arguments object.
+    ProgramArguments(int argc, char **argv)
+        : m_pos{0}, m_argc{argc}, m_argv{argv} {}
+
+    // Get the current argument.  Return nullptr if and only if the end is
+    // reached.
+    const char *arg() { return m_argv[m_pos]; }
+
+    // Advance to the next argument.  Must not be called after the end is
+    // reached.
+    void Next() { m_pos++; }
+
+    // Get the number of remaining arguments.
+    int argc() const { return m_argc - m_pos; }
+
+    // Get the remaining arguments.
+    char **argv() const { return m_argv + m_pos; }
+
+    // Return true if there are no more arguments in the set.
+    bool empty() const { return m_pos >= m_argc; }
+};
+
+// =============================================================================
+
 UsageError::UsageError(const std::string &what) : std::runtime_error{what} {}
 UsageError::UsageError(const char *what) : std::runtime_error{what} {}
 
@@ -224,6 +257,21 @@ void Parser::OptionHelp(FILE *fp) {
         if (!e.usage_neg.empty()) {
             fmt::print(fp, "  {}\n", e.usage_neg);
         }
+    }
+}
+
+void Parser::Parse(int argc, char **argv) {
+    ProgramArguments args(argc, argv);
+    try {
+        ParseAll(args);
+    } catch (UsageError &e) { FailUsage(e.what()); }
+}
+
+void Parser::ParseMain(int argc, char **argv) {
+    if (argc > 1) {
+        Parse(argc - 1, argv + 1);
+    } else {
+        Parse(0, nullptr);
     }
 }
 

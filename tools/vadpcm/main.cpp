@@ -37,8 +37,9 @@ const Command *LookupCommand(std::string_view name) {
 
 void MainHelp(FILE *fp) {
     std::fputs(
-        "Usage: vadpcm <command> [-h | -help] [<args>]\n"
-        "       vadpcm [-h | -help | help] [<topic>]\n"
+        "Usage: vadpcm <command> [<args>]\n"
+        "       vadpcm <command> (-h | -help)\n"
+        "       vadpcm (-h | -help | help) [<topic>]\n"
         "\n"
         "Commands:\n"
         "  decode  Decode a VADPCM audio file\n",
@@ -70,7 +71,7 @@ void ExecHelp(int argc, char **argv) {
 int main(int argc, char **argv) {
     using namespace vadpcm;
     try {
-        if (argc == 1) {
+        if (argc <= 1) {
             MainHelp(stdout);
             return 0;
         }

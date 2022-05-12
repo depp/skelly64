@@ -114,10 +114,8 @@ Args ParseArgs(int argc, char **argv) {
     fl.AddFlag(AxesFlag(&args.config.axes), "axes",
                "remap axes, default 'x,y,z'", "AXES");
     fl.AddBoolFlag(&args.config.animate, "animate", "convert animations");
-    flag::ProgramArguments prog_args{argc - 1, argv + 1};
-    try {
-        fl.ParseAll(prog_args);
-    } catch (flag::UsageError &ex) { flag::FailUsage(ex.what()); }
+    fl.ParseMain(argc, argv);
+
     if (args.model.empty()) {
         flag::FailUsage("missing required flag -model");
     }
