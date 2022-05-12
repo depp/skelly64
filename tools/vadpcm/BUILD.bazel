@@ -6,7 +6,7 @@ cc_binary(
     srcs = [
         "aiff.cpp",
         "aiff.hpp",
-        "vadpcmdec.cpp",
+        "decode.cpp",
     ],
     copts = CXXOPTS,
     visibility = ["//visibility:public"],

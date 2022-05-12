@@ -122,7 +122,7 @@ void Main(int argc, char **argv) {
             const uint8_t *ptr = temp.data(), *end = ptr + temp.size();
             if (end - ptr < 4) {
                 throw util::Error(input.ChunkMessage(
-                    "chunk too small, must by at least 4 bytes"));
+                    "chunk too small, must be at least 4 bytes"));
             }
             uint32_t sig = Read32(ptr);
             ptr += 4;
@@ -178,7 +178,7 @@ void Main(int argc, char **argv) {
             const uint8_t *ptr = temp.data(), *end = ptr + temp.size();
             if (end - ptr < 8) {
                 throw util::Error(input.ChunkMessage(
-                    "chunk too small, must by at least 8 bytes"));
+                    "chunk too small, must be at least 8 bytes"));
             }
             uint32_t offset = Read32(ptr);
             uint32_t block_size = Read32(ptr + 4);
