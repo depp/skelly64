@@ -5,6 +5,7 @@
 #include "lib/cpp/error.hpp"
 #include "lib/cpp/file.hpp"
 #include "lib/cpp/flag.hpp"
+#include "lib/cpp/log.hpp"
 #include "lib/cpp/quote.hpp"
 #include "lib/vadpcm/vadpcm.h"
 #include "tools/vadpcm/aiff.hpp"
@@ -15,10 +16,12 @@
 #include <err.h>
 #include <stdexcept>
 
+using util::Err;
 using util::Error;
 using util::Read16;
 using util::Read32;
 using util::Read64;
+using util::Warn;
 using util::Write16;
 using util::Write32;
 using util::Write64;
@@ -49,7 +52,7 @@ Args ParseArgs(int argc, char **argv) {
     try {
         fl.ParseAll(prog_args);
     } catch (flag::UsageError &ex) {
-        fmt::print(stderr, "Error: {}\n", ex.what());
+        Err("{}", ex.what());
         std::exit(2);
     }
     return args;
@@ -154,15 +157,13 @@ void Main(int argc, char **argv) {
                     }
                     codebook = Codebook(cp);
                 } else {
-                    fmt::print(stderr, "Warning: {}\n",
-                               input.ChunkMessage("unknown chunk type: {}",
+                    Warn("{}", input.ChunkMessage("unknown chunk type: {}",
                                                   util::Quote(name)));
                 }
             } else {
-                fmt::print(
-                    stderr, "Warning: {}\n",
-                    input.ChunkMessage("unknown application signature: {}",
-                                       FourCC(sig)));
+                Warn("{}",
+                     input.ChunkMessage("unknown application signature: {}",
+                                        FourCC(sig)));
             }
         } break;
         case 'SSND': {
@@ -217,8 +218,7 @@ void Main(int argc, char **argv) {
             output.WriteChunkRaw(samp.data(), samp.size() * 2);
         } break;
         default:
-            fmt::print(stderr, "Warning: {}\n",
-                       input.ChunkMessage("unknown chunk type"));
+            Warn("{}", input.ChunkMessage("unknown chunk type"));
         }
     }
     output.Commit();
@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
     try {
         vadpcm::Main(argc, argv);
     } catch (Error &e) {
-        fmt::print(stderr, "Error: {}\n", e.what());
+        Err("{}", e.what());
         std::exit(1);
     }
     return 0;

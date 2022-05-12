@@ -7,6 +7,7 @@ cc_library(
         "error.cpp",
         "file.cpp",
         "flag.cpp",
+        "log.cpp",
         "quote.cpp",
     ],
     hdrs = [
@@ -15,6 +16,7 @@ cc_library(
         "file.hpp",
         "flag.hpp",
         "hash.hpp",
+        "log.hpp",
         "pack.hpp",
         "quote.hpp",
     ],
