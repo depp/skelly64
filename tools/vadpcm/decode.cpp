@@ -6,6 +6,7 @@
 #include "lib/cpp/file.hpp"
 #include "lib/cpp/flag.hpp"
 #include "lib/cpp/log.hpp"
+#include "lib/cpp/path.hpp"
 #include "lib/cpp/quote.hpp"
 #include "lib/vadpcm/vadpcm.h"
 #include "tools/vadpcm/aiff.hpp"
@@ -68,22 +69,8 @@ Args ParseArgs(int argc, char **argv) {
     return args;
 }
 
-std::string_view Basename(std::string_view path) {
-    size_t i = path.rfind('/');
-    return i == std::string_view::npos ? path : path.substr(i + 1);
-}
-
-std::string_view Extension(std::string_view path) {
-    std::string_view base = Basename(path);
-    size_t i = base.rfind('.');
-    if (i == 0 || i == std::string_view::npos) {
-        return std::string_view();
-    }
-    return base.substr(i);
-}
-
 Format FormatForPath(std::string_view path) {
-    std::string_view ext = Extension(path);
+    std::string_view ext = util::Extension(path);
     return ext == ".aifc" ? Format::AIFC : Format::AIFF;
 }
 

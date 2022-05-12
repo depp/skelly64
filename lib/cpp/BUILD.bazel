@@ -8,6 +8,7 @@ cc_library(
         "file.cpp",
         "flag.cpp",
         "log.cpp",
+        "path.cpp",
         "quote.cpp",
     ],
     hdrs = [
@@ -18,6 +19,7 @@ cc_library(
         "hash.hpp",
         "log.hpp",
         "pack.hpp",
+        "path.hpp",
         "quote.hpp",
     ],
     copts = CXXOPTS,
