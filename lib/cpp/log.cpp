@@ -46,4 +46,12 @@ void WarnV(fmt::string_view format, fmt::format_args args) {
     LogV(LogLevel::Warning, format, args);
 }
 
+void InfoV(fmt::string_view format, fmt::format_args args) {
+    LogV(LogLevel::Info, format, args);
+}
+
+void DebugV(fmt::string_view format, fmt::format_args args) {
+    LogV(LogLevel::Debug, format, args);
+}
+
 } // namespace util

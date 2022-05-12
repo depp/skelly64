@@ -42,4 +42,22 @@ void Warn(const S &format, Args &&...args) {
     WarnV(format, fmt::make_args_checked<Args...>(format, args...));
 }
 
+// Print an informational message.
+void InfoV(fmt::string_view format, fmt::format_args args);
+
+// Print an informational message.
+template <typename S, typename... Args>
+void Info(const S &format, Args &&...args) {
+    InfoV(format, fmt::make_args_checked<Args...>(format, args...));
+}
+
+// Print a debugging message.
+void DebugV(fmt::string_view format, fmt::format_args args);
+
+// Print an debugging message.
+template <typename S, typename... Args>
+void Debug(const S &format, Args &&...args) {
+    DebugV(format, fmt::make_args_checked<Args...>(format, args...));
+}
+
 } // namespace util

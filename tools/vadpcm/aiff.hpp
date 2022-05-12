@@ -120,6 +120,9 @@ public:
     // chunks.
     bool NextChunk(ChunkHeader *head);
 
+    // Skip the given number of bytes from a chunk. Throw an error on failure.
+    void Skip(size_t amt);
+
     // Read the given number of bytes from a chunk, and throw an error on
     // failure.
     void ReadExact(void *ptr, size_t amt);

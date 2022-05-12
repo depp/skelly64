@@ -3,9 +3,38 @@
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
 #pragma once
 
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
 
 namespace util {
+
+// Byte orders.
+enum class Endian {
+    Big,
+    Little,
+};
+
+#ifdef __BYTE_ORDER__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+constexpr Endian NativeEndian = Endian::Little;
+#elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+constexpr Endian NativeEndian = Endian::Big;
+#else
+#error "unknown endian"
+#endif
+#else
+#error "unknown endian"
+#endif
+
+// Return true if this is the native byte order.
+constexpr bool IsNative(Endian endian) {
+    return endian == NativeEndian;
+}
+
+// Return true if this is swapped from the native byte order.
+constexpr bool IsSwapped(Endian endian) {
+    return endian != NativeEndian;
+}
 
 inline uint32_t PutFloat32(float x) {
     union {
@@ -24,12 +53,13 @@ inline uint32_t BSwap32(uint32_t x) {
     return __builtin_bswap32(x);
 }
 
-#if __BYTE_ORDER__ && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-#elif __BYTE_ORDER__ && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-#error "Big endian is unsupported"
-#else
-#error "Unknown endian"
-#endif
+// Swap an array of 16-bit elements.
+void BSwap16Array(uint16_t *arr, size_t n);
+
+// Swap an array of 16-bit elements.
+inline void BSwap16Array(int16_t *arr, size_t n) {
+    BSwap16Array(reinterpret_cast<uint16_t *>(arr), n);
+}
 
 // Read a big-endian 16-bit integer.
 inline uint16_t Read16(const void *ptr) {

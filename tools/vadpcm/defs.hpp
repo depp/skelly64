@@ -10,4 +10,7 @@ namespace vadpcm {
 int DecodeMain(int argc, char **argv);
 void DecodeHelp(FILE *fp);
 
+int EncodeMain(int argc, char **argv);
+void EncodeHelp(FILE *fp);
+
 } // namespace vadpcm

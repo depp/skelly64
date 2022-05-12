@@ -6,8 +6,11 @@ cc_binary(
     srcs = [
         "aiff.cpp",
         "aiff.hpp",
+        "audiofile.cpp",
+        "audiofile.hpp",
         "decode.cpp",
         "defs.hpp",
+        "encode.cpp",
         "main.cpp",
     ],
     copts = CXXOPTS,

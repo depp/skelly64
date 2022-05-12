@@ -24,6 +24,7 @@ struct Command {
 
 const Command kCommands[] = {
     {"decode", DecodeMain, DecodeHelp},
+    {"encode", EncodeMain, EncodeHelp},
 };
 
 const Command *LookupCommand(std::string_view name) {

@@ -4,6 +4,7 @@
 #include "tools/vadpcm/aiff.hpp"
 
 #include "lib/cpp/error.hpp"
+#include "lib/cpp/log.hpp"
 #include "lib/cpp/quote.hpp"
 
 #include <fmt/format.h>
@@ -140,7 +141,7 @@ void CommonChunk::Read(AIFFReader &file) {
             throw util::Error(
                 file.ChunkMessage("chunk must be at least 18 bytes long"));
         }
-        size = kCommonAIFCSize;
+        size = kCommonAIFFSize;
         break;
     case Format::AIFC:
         if (size < kCommonAIFCSize + 1) {
@@ -267,6 +268,19 @@ bool AIFFReader::NextChunk(ChunkHeader *head) {
     }
     m_nextchunk = m_pos + size;
     return true;
+}
+
+void AIFFReader::Skip(size_t amt) {
+    if (amt == 0) {
+        return;
+    }
+    uint64_t rem = m_nextchunk - m_pos;
+    if (amt > rem) {
+        throw util::Error(ChunkMessage("unexpected end of chunk"));
+    }
+    int64_t newpos = m_pos + amt;
+    m_file.Seek(newpos);
+    m_pos = newpos;
 }
 
 void AIFFReader::ReadExact(void *ptr, size_t amt) {
