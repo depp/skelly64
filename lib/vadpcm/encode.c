@@ -140,6 +140,27 @@ static void vadpcm_solve(const double corr[restrict static 6],
     coeff[!pivot] = y3;
 }
 
+// Calculate the worst-case error from a frame, given its solved coefficients.
+static double vadpcm_eval_solved(const double corr[restrict static 6],
+                                 const double coeff[restrict static 2]) {
+    // Equivalent to vadpcm_eval(), for the case where coeff are optimal for
+    // this autocorrelation matrix.
+    //
+    // matrix = [k B^T]
+    //          [B A  ]
+    //
+    // solve(A, B) = A^-1 B
+    // eval(k, A, B, x) = k - 2B^T x + x^T A x
+    // eval(k, A, B, solve(A, B))
+    //   = eval(k, A, B, A^-1 B)
+    //   = k - 2B^T (A^-1 B) + (A^-1 B)^T A (A^-1 B)
+    //   = k - 2B^T A^-1 B + B^T A^-1^T A A^-1 B
+    //   = k - 2B^T A^-1 B + B^T A^-1^T B
+    //   = k - B^T A^-1 B
+    //   = k - B^T solve(A, B)
+    return corr[0] - corr[1] * coeff[0] - corr[3] * coeff[1];
+}
+
 static int vadpcm_getshift(int min, int max) {
     int shift = 0;
     while (shift < 12 && (min < -8 || 7 < max)) {
@@ -360,6 +381,11 @@ static void test_solve(void) {
         }
         // Test that this is a local minimum.
         float error = vadpcm_eval(corr, coeff);
+        if (error < 0.0f) {
+            fprintf(stderr, "test_solve case %zu: negative error\n", test);
+            failures++;
+            continue;
+        }
         float min_error = error - error * (1.0f / 65536.0f);
         for (size_t off = 0; off < sizeof(offset) / sizeof(*offset); off++) {
             float ocoeff[2];
@@ -372,6 +398,17 @@ static void test_solve(void) {
                         test);
                 failures++;
             }
+        }
+        // Check that eval_solved() gives us the same result as eval().
+        double error2 = vadpcm_eval_solved(dcorr[test], dcoeff);
+        if (fabs(error2 - (double)error) > (double)error * (1.0 / 65536.0)) {
+            fprintf(stderr,
+                    "test_solve case %zu: eval_solved() is incorrect\n"
+                    "\teval_solved = %f\n"
+                    "\teval        = %f\n",
+                    test, error2, (double)error);
+            failures++;
+            continue;
         }
     }
     if (failures > 0) {
