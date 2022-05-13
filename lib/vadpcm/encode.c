@@ -138,7 +138,7 @@ static void vadpcm_solve(const double corr[restrict static 6],
     coeff[!pivot] = y3;
 }
 
-// Calculate the worst-case error from a frame, given its solved coefficients.
+// Calculate the best-case error from a frame, given its solved coefficients.
 static double vadpcm_eval_solved(const double corr[restrict static 6],
                                  const double coeff[restrict static 2]) {
     // Equivalent to vadpcm_eval(), for the case where coeff are optimal for
