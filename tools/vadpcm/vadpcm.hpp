@@ -1,7 +1,13 @@
+// Copyright 2022 Dietrich Epp.
+// This file is part of Skelly 64. Skelly 64 is licensed under the terms of the
+// Mozilla Public License, version 2.0. See LICENSE.txt for details.
+#pragma once
+
 #include <cstdlib>
+#include <string>
 #include <utility>
 
-struct vadpcm_codebook;
+#include "lib/vadpcm/vadpcm.h"
 
 namespace vadpcm {
 
@@ -26,5 +32,7 @@ public:
 private:
     vadpcm_codebook *m_ptr;
 };
+
+std::string VADPCMErrorMessage(vadpcm_error err);
 
 } // namespace vadpcm

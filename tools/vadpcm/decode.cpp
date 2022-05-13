@@ -190,14 +190,8 @@ int DecodeMain(int argc, char **argv) {
             vadpcm_error err =
                 vadpcm_decode(codebook, &state, framecount, samp.data(), ptr);
             if (err != 0) {
-                const char *msg = vadpcm_error_name(err);
-                if (msg == nullptr) {
-                    throw util::Error(input.ChunkMessage(
-                        "could not decode: unknown error: {}",
-                        static_cast<int>(err)));
-                }
-                throw util::Error(
-                    input.ChunkMessage("could not decode: {}", msg));
+                throw util::Error(input.ChunkMessage("could not decode: {}",
+                                                     VADPCMErrorMessage(err)));
             }
             {
                 char buf[16];
