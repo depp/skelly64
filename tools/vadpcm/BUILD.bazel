@@ -12,6 +12,7 @@ cc_binary(
         "defs.hpp",
         "encode.cpp",
         "main.cpp",
+        "vadpcm.hpp",
     ],
     copts = CXXOPTS,
     visibility = ["//visibility:public"],

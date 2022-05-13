@@ -10,6 +10,7 @@
 #include "lib/cpp/quote.hpp"
 #include "lib/vadpcm/vadpcm.h"
 #include "tools/vadpcm/aiff.hpp"
+#include "tools/vadpcm/vadpcm.hpp"
 
 #include <fmt/format.h>
 
