@@ -81,7 +81,9 @@ int DecodeMain(int argc, char **argv) {
     AIFFWriter output;
     output.Create(args.output, out_format);
     bool has_comm = false;
-    Codebook codebook;
+    bool has_codebook = false;
+    vadpcm_codebook_spec cbspec{};
+    std::vector<vadpcm_vector> cbvec;
     std::vector<uint8_t> temp;
     while (true) {
         ChunkHeader head;
@@ -132,13 +134,14 @@ int DecodeMain(int argc, char **argv) {
                 }
                 ptr += adv;
                 if (name == kAPPLCodebook) {
-                    if (codebook) {
+                    if (has_codebook) {
                         throw util::Error(input.ChunkMessage(
                             "multiple codebook chunks found"));
                     }
-                    vadpcm_codebook *cp;
-                    vadpcm_error err =
-                        vadpcm_read_codebook_aifc(&cp, ptr, end - ptr);
+                    has_codebook = true;
+                    size_t cboffset;
+                    vadpcm_error err = vadpcm_read_codebook_aifc(
+                        &cbspec, &cboffset, ptr, end - ptr);
                     if (err != 0) {
                         const char *msg = vadpcm_error_name(err);
                         if (msg == nullptr) {
@@ -149,7 +152,10 @@ int DecodeMain(int argc, char **argv) {
                         throw util::Error(input.ChunkMessage(
                             "could not parse codebook: {}", msg));
                     }
-                    codebook = Codebook(cp);
+                    ptr += cboffset;
+                    int cbsize = cbspec.predictor_count * cbspec.order;
+                    cbvec.resize(cbsize);
+                    vadpcm_read_vectors(cbsize, ptr, cbvec.data());
                 } else {
                     Warn("{}", input.ChunkMessage("unknown chunk type: {}",
                                                   util::Quote(name)));
@@ -165,7 +171,7 @@ int DecodeMain(int argc, char **argv) {
                 throw util::Error(
                     input.ChunkMessage("sound data found before common chunk"));
             }
-            if (!codebook) {
+            if (!has_codebook) {
                 throw util::Error(input.ChunkMessage(
                     "sound data found before codebook chunk"));
             }
@@ -185,10 +191,11 @@ int DecodeMain(int argc, char **argv) {
             size_t size = end - ptr;
             size_t framecount = size / kVADPCMFrameByteSize;
             std::vector<int16_t> samp(framecount * kVADPCMFrameSampleCount);
-            vadpcm_state state;
+            vadpcm_vector state;
             std::memset(&state, 0, sizeof(state));
-            vadpcm_error err =
-                vadpcm_decode(codebook, &state, framecount, samp.data(), ptr);
+            vadpcm_error err = vadpcm_decode(cbspec.predictor_count,
+                                             cbspec.order, cbvec.data(), &state,
+                                             framecount, samp.data(), ptr);
             if (err != 0) {
                 throw util::Error(input.ChunkMessage("could not decode: {}",
                                                      VADPCMErrorMessage(err)));

@@ -2,21 +2,11 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 load("//bazel:copts.bzl", "COPTS")
 
 cc_library(
-    name = "binary",
-    srcs = [
-        "binary.c",
-    ],
-    hdrs = [
-        "binary.h",
-    ],
-    copts = COPTS,
-)
-
-cc_library(
     name = "vadpcm",
     srcs = [
+        "binary.c",
+        "binary.h",
         "codebook.c",
-        "codebook.h",
         "decode.c",
         "error.c",
     ],
@@ -25,58 +15,26 @@ cc_library(
     ],
     copts = COPTS,
     visibility = ["//tools:__subpackages__"],
-    deps = [
-        ":binary",
-    ],
-)
-
-cc_library(
-    name = "test",
-    testonly = True,
-    srcs = [
-        "test.c",
-    ],
-    hdrs = [
-        "test.h",
-    ],
-    copts = COPTS,
-    deps = [
-        ":binary",
-    ],
 )
 
 cc_test(
-    name = "encode_test",
+    name = "vadpcm_test",
     size = "small",
     srcs = [
+        "binary.c",
+        "binary.h",
         "codebook.c",
-        "codebook.h",
         "decode.c",
         "encode.c",
         "error.c",
+        "test.c",
+        "test.h",
         "vadpcm.h",
     ],
     copts = COPTS,
     data = [
         "data/sfx1.adpcm.aifc",
-    ],
-    defines = ["TEST"],
-    deps = [
-        ":test",
-    ],
-)
-
-cc_test(
-    name = "decode_test",
-    size = "small",
-    srcs = ["decode_test.c"],
-    copts = COPTS,
-    data = [
-        "data/sfx1.adpcm.aifc",
         "data/sfx1.pcm.aiff",
     ],
-    deps = [
-        ":test",
-        ":vadpcm",
-    ],
+    defines = ["TEST"],
 )

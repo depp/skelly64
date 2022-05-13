@@ -1,7 +1,6 @@
 // Copyright 2022 Dietrich Epp.
 // This file is part of Skelly 64. Skelly 64 is licensed under the terms of the
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
-#include "lib/vadpcm/codebook.h"
 #include "lib/vadpcm/vadpcm.h"
 
 #include <limits.h>
@@ -21,8 +20,9 @@ static int vadpcm_clamp16(int x) {
     return x;
 }
 
-vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
-                           struct vadpcm_state *restrict state,
+vadpcm_error vadpcm_decode(int predictor_count, int order,
+                           const struct vadpcm_vector *restrict codebook,
+                           struct vadpcm_vector *restrict state,
                            size_t frame_count, int16_t *restrict dest,
                            const void *restrict src) {
     const uint8_t *sptr = src;
@@ -33,11 +33,11 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
         int control = fin[0];
         int scaling = control >> 4;
         int predictor_index = control & 15;
-        if (predictor_index >= b->predictor_count) {
+        if (predictor_index >= predictor_count) {
             return kVADPCMErrInvalidData;
         }
-        const struct vadpcm_vector *restrict predictor =
-            vadpcm_codebook_get(b, predictor_index);
+        const struct vadpcm_vector *predictor =
+            codebook + order * predictor_index;
 
         // Decode each of the two vectors within the frame.
         for (int vector = 0; vector < 2; vector++) {
@@ -47,8 +47,8 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
             }
 
             // Accumulate the part of the predictor from the previous block.
-            for (int k = 0; k < b->order; k++) {
-                int sample = state->v[8 - b->order + k];
+            for (int k = 0; k < order; k++) {
+                int sample = state->v[8 - order + k];
                 for (int i = 0; i < 8; i++) {
                     accumulator[i] += sample * predictor[k].v[i];
                 }
@@ -63,7 +63,7 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
             }
 
             // Accumulate the residual and predicted values.
-            const struct vadpcm_vector *v = &predictor[b->order - 1];
+            const struct vadpcm_vector *v = &predictor[order - 1];
             for (int k = 0; k < 8; k++) {
                 int residual = residuals[k] << scaling;
                 accumulator[k] += residual << 11;
@@ -82,3 +82,42 @@ vadpcm_error vadpcm_decode(const struct vadpcm_codebook *restrict b,
     }
     return 0;
 }
+
+#if TEST
+#include "lib/vadpcm/test.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+void test_decode(const char *name, int predictor_count, int order,
+                 struct vadpcm_vector *codebook, size_t frame_count,
+                 const void *vadpcm, const int16_t *pcm) {
+    size_t sample_count = frame_count * kVADPCMFrameSampleCount;
+    int16_t *out_pcm = xmalloc(sizeof(*out_pcm) * sample_count);
+    struct vadpcm_vector state = {{0}};
+    vadpcm_error err = vadpcm_decode(predictor_count, order, codebook, &state,
+                                     frame_count, out_pcm, vadpcm);
+    if (err != 0) {
+        fprintf(stderr, "error: test_decode %s: %s", name,
+                vadpcm_error_name2(err));
+        test_failure_count++;
+        goto done;
+    }
+    for (size_t i = 0; i < sample_count; i++) {
+        if (pcm[i] != out_pcm[i]) {
+            fprintf(stderr,
+                    "error: test_decode %s: output does not match, "
+                    "index = %zu\n",
+                    name, i);
+            size_t frame = i / kVADPCMFrameSampleCount;
+            show_pcm_diff(pcm + frame * kVADPCMFrameSampleCount,
+                          out_pcm + frame * kVADPCMFrameSampleCount);
+            test_failure_count++;
+            goto done;
+        }
+    }
+done:
+    free(out_pcm);
+}
+
+#endif

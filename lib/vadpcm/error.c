@@ -7,12 +7,12 @@ const char *vadpcm_error_name(vadpcm_error err) {
     switch (err) {
     case kVADPCMErrNone:
         return "no error";
-    case kVADPCMErrNoMemory:
-        return "out of memory";
     case kVADPCMErrInvalidData:
         return "invalid data";
     case kVADPCMErrLargeOrder:
         return "predictor order too large";
+    case kVADPCMErrLargePredictorCount:
+        return "predictor count too large";
     case kVADPCMErrUnknownVersion:
         return "unknown VADPCM version";
     }
