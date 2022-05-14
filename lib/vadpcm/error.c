@@ -15,6 +15,8 @@ const char *vadpcm_error_name(vadpcm_error err) {
         return "predictor count too large";
     case kVADPCMErrUnknownVersion:
         return "unknown VADPCM version";
+    case kVADPCMErrInvalidParams:
+        return "invalid encoding parameters";
     }
     return 0;
 }

@@ -8,6 +8,7 @@ cc_library(
         "binary.h",
         "codebook.c",
         "decode.c",
+        "encode.c",
         "error.c",
     ],
     hdrs = [

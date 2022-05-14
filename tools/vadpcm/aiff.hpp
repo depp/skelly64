@@ -65,6 +65,7 @@ struct Extended {
     void Read(const uint8_t *ptr);
     void Write(uint8_t *ptr);
     double GetDouble();
+    static Extended FromDouble(double x);
 };
 
 // Compression type for PCM.

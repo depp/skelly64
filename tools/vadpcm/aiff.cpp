@@ -114,6 +114,21 @@ double Extended::GetDouble() {
     return v.d;
 }
 
+Extended Extended::FromDouble(double x) {
+    union {
+        double d;
+        uint64_t i;
+    } u;
+    u.d = x;
+    unsigned sign = u.i >> 63;
+    unsigned exp = (u.i >> 52) & ((1u << 11) - 1);
+    uint64_t frac = u.i & ((static_cast<uint64_t>(1) << 52) - 1);
+    Extended e;
+    e.exponent = (sign << 15) | (exp + 16383 - 1023);
+    e.fraction = (static_cast<uint64_t>(1) << 63) | (frac << 11);
+    return e;
+}
+
 const std::string_view kCompressionPCMName = "not compressed";
 const std::string_view kCompressionVADPCMName = "VADPCM ~4-1";
 
@@ -310,11 +325,21 @@ std::string AIFFReader::VChunkMessage(fmt::string_view format,
 void AIFFWriter::Create(const std::string &name, Format format) {
     util::OutputFile file;
     file.Create(name);
-    char head[FileHeader::kSize];
-    memset(head, 0, sizeof(head));
-    file.Write(head, sizeof(head));
+    char head[FileHeader::kSize + 12];
+    memset(head, 0, FileHeader::kSize);
+    size_t size = FileHeader::kSize;
+    if (format == Format::AIFC) {
+        size += 12;
+        // See AIFC spec... this is the version of the AIFC format.
+        char *ptr = head + FileHeader::kSize;
+        Write32(ptr, 'FVER');
+        Write32(ptr + 4, 4);
+        Write32(ptr + 8, 2726318400);
+    }
+    file.Write(head, size);
     m_file = std::move(file);
     m_format = format;
+    m_size = size;
 }
 
 void AIFFWriter::Commit() {

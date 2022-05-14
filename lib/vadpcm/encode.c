@@ -4,7 +4,19 @@
 #include "lib/vadpcm/vadpcm.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
+
+enum {
+    // Order of predictor to use. Other orders are not supported.
+    kVADPCMOrder = 2,
+
+    // Number of predictors to use, by default.
+    kVADPCMDefaultPredictorCount = 4,
+
+    // Iterations for predictor assignment.
+    kVADPCMIterations = 20,
+};
 
 // Autocorrelation is a symmetric 3x3 matrix.
 //
@@ -38,6 +50,38 @@ static void vadpcm_autocorr(size_t frame_count, float (*restrict corr)[6],
         }
         for (int i = 0; i < 6; i++) {
             corr[frame][i] = m[i];
+        }
+    }
+}
+
+// Get the mean autocorrelation matrix for each predictor. If the predictor for
+// a frame is out of range, that frame is ignored.
+static void vadpcm_meancorrs(size_t frame_count, int predictor_count,
+                             const float (*restrict corr)[6],
+                             const uint8_t *restrict predictors,
+                             double (*restrict pcorr)[6], int *restrict count) {
+    for (int i = 0; i < predictor_count; i++) {
+        count[i] = 0;
+        for (int j = 0; j < 6; j++) {
+            pcorr[i][j] = 0.0;
+        }
+    }
+    for (size_t frame = 0; frame < frame_count; frame++) {
+        int predictor = predictors[frame];
+        if (predictor < predictor_count) {
+            count[predictor]++;
+            // REVIEW: This is naive summation. Is that good enough?
+            for (int j = 0; j < 6; j++) {
+                pcorr[predictor][j] += (double)corr[frame][j];
+            }
+        }
+    }
+    for (int i = 0; i < predictor_count; i++) {
+        if (count[i] > 0) {
+            double a = 1.0 / count[i];
+            for (int j = 0; j < 6; j++) {
+                pcorr[i][j] *= a;
+            }
         }
     }
 }
@@ -159,6 +203,159 @@ static double vadpcm_eval_solved(const double corr[restrict static 6],
     return corr[0] - corr[1] * coeff[0] - corr[3] * coeff[1];
 }
 
+// Calculate the best-case error for each frame, given the autocorrelation
+// matrixes.
+static void vadpcm_best_error(size_t frame_count,
+                              const float (*restrict corr)[6],
+                              float *restrict best_error) {
+    for (size_t frame = 0; frame < frame_count; frame++) {
+        double fcorr[6];
+        for (int i = 0; i < 6; i++) {
+            fcorr[i] = (double)corr[frame][i];
+        }
+        double coeff[2];
+        vadpcm_solve(fcorr, coeff);
+        best_error[frame] = (float)vadpcm_eval_solved(fcorr, coeff);
+    }
+}
+
+// Refine (improve) the existing predictor assignments. Does not assign
+// unassigned predictors. Record the amount of error, squared, for each frame.
+// Returns the index of an unassigned predictor, or predictor_count, if no
+// predictor is unassigned.
+static int vadpcm_refine_predictors(size_t frame_count, int predictor_count,
+                                    const float (*restrict corr)[6],
+                                    float *restrict error,
+                                    uint8_t *restrict predictors) {
+    // Calculate optimal predictor coefficients for each predictor.
+    double pcorr[kVADPCMMaxPredictorCount][6];
+    int count[kVADPCMMaxPredictorCount];
+    vadpcm_meancorrs(frame_count, predictor_count, corr, predictors, pcorr,
+                     count);
+
+    float coeff[kVADPCMMaxPredictorCount][2];
+    int active_count = 0;
+    for (int i = 0; i < predictor_count; i++) {
+        if (count[i] > 0) {
+            double dcoeff[2];
+            vadpcm_solve(pcorr[i], dcoeff);
+            for (int j = 0; j < 2; j++) {
+                coeff[active_count][j] = dcoeff[j];
+            }
+            active_count++;
+        }
+    }
+
+    // Assign frames to the best predictor for each frame, and record the amount
+    // of error.
+    int count2[kVADPCMMaxPredictorCount];
+    for (int i = 0; i < active_count; i++) {
+        count2[i] = 0;
+    }
+    for (size_t frame = 0; frame < frame_count; frame++) {
+        int fpredictor = 0;
+        float ferror = 0.0f;
+        for (int i = 0; i < active_count; i++) {
+            float e = vadpcm_eval(corr[frame], coeff[i]);
+            if (i == 0 || e < ferror) {
+                fpredictor = i;
+                ferror = e;
+            }
+        }
+        predictors[frame] = fpredictor;
+        error[frame] = ferror;
+        count2[fpredictor]++;
+    }
+    for (int i = 0; i < active_count; i++) {
+        if (count2[i] == 0) {
+            return i;
+        }
+    }
+    return active_count;
+}
+
+// Find the frame where the error is highest, relative to the best case.
+static size_t vadpcm_worst_frame(size_t frame_count,
+                                 const float *restrict best_error,
+                                 const float *restrict error) {
+    float best_improvement = error[0] - best_error[0];
+    size_t best_index = 0;
+    for (size_t frame = 1; frame < frame_count; frame++) {
+        float improvement = error[frame] - best_error[frame];
+        if (improvement > best_improvement) {
+            best_improvement = improvement;
+            best_index = frame;
+        }
+    }
+    return best_index;
+}
+
+// Assign a predictor to each frame. The predictors array should be initialized
+// to zero.
+static void vadpcm_assign_predictors(size_t frame_count, int predictor_count,
+                                     const float (*restrict corr)[6],
+                                     const float *restrict best_error,
+                                     float *restrict error,
+                                     uint8_t *restrict predictors) {
+    int unassigned = predictor_count;
+    int active_count = 1;
+    for (int iter = 0; iter < kVADPCMIterations; iter++) {
+        if (unassigned < predictor_count) {
+            size_t worst = vadpcm_worst_frame(frame_count, best_error, error);
+            predictors[worst] = unassigned;
+            if (unassigned >= active_count) {
+                active_count = unassigned + 1;
+            }
+        }
+        unassigned = vadpcm_refine_predictors(frame_count, active_count, corr,
+                                              error, predictors);
+    }
+}
+
+// Calculate codebook vectors for one predictor, given the predictor
+// coefficients.
+static void vadpcm_make_vectors(
+    const double coeff[restrict static 2],
+    struct vadpcm_vector vectors[restrict static 2]) {
+    for (int i = 0; i < 2; i++) {
+        double x1 = i != 0;
+        double x2 = i == 0;
+        for (int j = 0; j < 8; j++) {
+            double x = coeff[0] * x1 + coeff[1] * x2;
+            int value;
+            if (x > 0x7fff) {
+                value = 0x7fff;
+            } else if (x < -0x8000) {
+                value = -0x8000;
+            } else {
+                value = lrint(x);
+            }
+            vectors[i].v[j] = value;
+            x2 = x1;
+            x1 = x;
+        }
+    }
+}
+
+// Create a codebook, given the frame autocorrelation matrixes and the
+// assignment from frames to predictors.
+static void vadpcm_make_codebook(size_t frame_count, int predictor_count,
+                                 const float (*restrict corr)[6],
+                                 const uint8_t *restrict predictors,
+                                 struct vadpcm_vector *restrict codebook) {
+    double pcorr[kVADPCMMaxPredictorCount][6];
+    int count[kVADPCMMaxPredictorCount];
+    vadpcm_meancorrs(frame_count, predictor_count, corr, predictors, pcorr,
+                     count);
+    for (int i = 0; i < predictor_count; i++) {
+        if (count[i] > 0) {
+            vadpcm_make_vectors(pcorr[i], codebook + 2 * i);
+        } else {
+            memset(codebook + 2 * i, 0, sizeof(struct vadpcm_vector) * 2);
+        }
+    }
+}
+
 static int vadpcm_getshift(int min, int max) {
     int shift = 0;
     while (shift < 12 && (min < -8 || 7 < max)) {
@@ -167,6 +364,10 @@ static int vadpcm_getshift(int min, int max) {
         shift++;
     }
     return shift;
+}
+
+size_t vadpcm_encode_scratch_size(size_t frame_count) {
+    return frame_count * (sizeof(float) * 8 + 1);
 }
 
 // Encode audio as VADPCM, given the assignment of each frame to a predictor.
@@ -265,6 +466,52 @@ static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
         state[0] = state[2];
         state[1] = state[3];
     }
+}
+
+vadpcm_error vadpcm_encode(const struct vadpcm_params *restrict params,
+                           struct vadpcm_vector *restrict codebook,
+                           size_t frame_count, void *restrict dest,
+                           const int16_t *restrict src, void *scratch) {
+    int predictor_count = params->predictor_count;
+    if (predictor_count < 1 || kVADPCMMaxPredictorCount < predictor_count) {
+        return kVADPCMErrInvalidParams;
+    }
+
+    // Early exit if there is no data to encode.
+    if (frame_count == 0) {
+        memset(codebook, 0,
+               sizeof(*codebook) * kVADPCMEncodeOrder * predictor_count);
+    }
+
+    // Divide up scratch memory.
+    float(*restrict corr)[6];
+    float *restrict best_error;
+    float *restrict error;
+    uint8_t *restrict predictors;
+    {
+        char *ptr = scratch;
+        corr = (void *)ptr;
+        ptr += sizeof(*corr) * frame_count;
+        best_error = (void *)ptr;
+        ptr += sizeof(*best_error) * frame_count;
+        error = (void *)ptr;
+        ptr += sizeof(*error) * frame_count;
+        predictors = (void *)ptr;
+    }
+
+    vadpcm_autocorr(frame_count, corr, src);
+    for (size_t i = 0; i < frame_count; i++) {
+        predictors[i] = 0;
+    }
+    if (predictor_count > 1) {
+        vadpcm_best_error(frame_count, corr, best_error);
+        vadpcm_assign_predictors(frame_count, predictor_count, corr, best_error,
+                                 error, predictors);
+    }
+    vadpcm_make_codebook(frame_count, predictor_count, corr, predictors,
+                         codebook);
+    vadpcm_encode_data(frame_count, dest, src, predictors, codebook);
+    return 0;
 }
 
 #if TEST

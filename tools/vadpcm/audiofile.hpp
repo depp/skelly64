@@ -39,7 +39,8 @@ public:
 
     int sample_rate() const { return m_sample_rate; }
     int channel_count() const { return m_channel_count; }
-    const std::vector<int16_t> data() const { return m_data; }
+    std::vector<int16_t> &data() { return m_data; }
+    const std::vector<int16_t> &data() const { return m_data; }
 
     // Set the rate and channel count.
     void SetInfo(int sample_rate, int channel_count) {

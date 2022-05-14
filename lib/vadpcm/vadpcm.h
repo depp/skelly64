@@ -31,6 +31,9 @@ typedef enum {
 
     // Data uses an unsupported / unknown version of VADPCM.
     kVADPCMErrUnknownVersion,
+
+    // Invalid encoding parameters.
+    kVADPCMErrInvalidParams,
 } vadpcm_error;
 
 // Return the short name of the VADPCM error code. Returns NULL for unknown
@@ -44,11 +47,12 @@ enum {
     // The number of bytes in an encoded VADPCM frame.
     kVADPCMFrameByteSize = 9,
 
-    // The maximum supported predictor order. Do not change this value.
+    // The maximum supported predictor order. Do not change this value. This is
+    // chosen to make the decoder state the same size as a 128-bit vector.
     kVADPCMMaxOrder = 8,
 
-    // The maximum supported predictor count. This is determined by the frame
-    // format, which uses four bits to store the predictor number.
+    // The maximum supported number of predictors. This is limited by the format
+    // of VADPCM frames, which only use four bits to encode the predictor index.
     kVADPCMMaxPredictorCount = 16,
 
     // The number of samples in a VADPCM vector. This is likely chosen to equal
@@ -122,6 +126,38 @@ vadpcm_error vadpcm_decode(int predictor_count, int order,
                            struct vadpcm_vector *VADPCM_RESTRICT state,
                            size_t frame_count, int16_t *VADPCM_RESTRICT dest,
                            const void *VADPCM_RESTRICT src);
+
+// Parameters for VADPCM encoding.
+struct vadpcm_params {
+    // The number of predictors to put in the codebook.
+    int predictor_count;
+};
+
+// Return the amount of scratch space needed to encode a file with the given
+// number of frames.
+size_t vadpcm_encode_scratch_size(size_t frame_count);
+
+// Encode PCM as VADPCM. The predictor order is kVADPCMEncodeOrder (2) and
+// cannot be changed.
+//
+// All audio must be processed at once. This is because the audio data must be
+// scanned multiple times: once to create the codebook and once to encode the
+// data using the codebook.
+//
+// Arguments:
+//   params: Encoding parameters
+//   codebook: Output array of predictor_count * kVADPCMEncodeOrder vectors
+//   frame_count: Number of frames of VADPCM to encode
+//   dest: Output array of frame_count * kVADPCMFrameByteSize bytes
+//   src: Input array of frame_count * kVADPCMFrameSampleCount elements
+//   scratch: Scratch space with size vadpcm_encode_scratch_size(frame_count)
+//
+// Error codes:
+//   kVADPCMErrInvalidParams: Invalid encoding parameters.
+vadpcm_error vadpcm_encode(const struct vadpcm_params *VADPCM_RESTRICT params,
+                           struct vadpcm_vector *VADPCM_RESTRICT codebook,
+                           size_t frame_count, void *VADPCM_RESTRICT dest,
+                           const int16_t *VADPCM_RESTRICT src, void *scratch);
 
 #ifdef __cplusplus
 }

@@ -22,6 +22,11 @@ namespace {
 
 constexpr size_t kBufferSize = 16 * 1024;
 
+// Round up to a multiple of 16.
+size_t Align16(size_t x) {
+    return (x + 15) & ~(size_t)15;
+}
+
 // =============================================================================
 // Sample formats
 // =============================================================================
@@ -63,6 +68,7 @@ struct FormatS24 {
 void LoadAIFFSamplesS16(AIFFReader &input, AudioFile *fl, uint32_t sample_count,
                         util::Endian endian) {
     std::vector<int16_t> data;
+    data.reserve(Align16(sample_count));
     data.resize(sample_count);
     input.ReadExact(data.data(), sample_count * 2);
     if (IsSwapped(endian)) {
@@ -75,6 +81,7 @@ template <typename Format>
 void LoadAIFFSamples(AIFFReader &input, AudioFile *fl, uint32_t sample_count,
                      util::Endian endian) {
     std::vector<int16_t> data;
+    data.reserve(Align16(sample_count));
     data.resize(sample_count);
     int16_t *outptr = data.data();
 
@@ -129,6 +136,7 @@ AudioFile LoadAIFF(const std::string &path) {
                 throw Error(input.ChunkMessage(
                     "sample rate is out of range: {}", rate));
             }
+            fl.SetInfo(static_cast<int>(rate), channel_count);
             switch (comm.compression_type) {
             case kCompressionPCM:
                 if (comm.sample_size <= 8) {
