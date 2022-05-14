@@ -212,6 +212,9 @@ int DecodeMain(int argc, char **argv) {
             }
             output.WriteChunkRaw(samp.data(), samp.size() * 2);
         } break;
+        case 'COMT':
+        case 'FVER':
+            break;
         default:
             Warn("{}", input.ChunkMessage("unknown chunk type"));
         }

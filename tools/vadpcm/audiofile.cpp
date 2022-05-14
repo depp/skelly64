@@ -180,6 +180,9 @@ AudioFile LoadAIFF(const std::string &path) {
             input.Skip(offset);
             loader(input, &fl, frame_count * channel_count, endian);
         } break;
+        case 'COMT':
+        case 'FVER':
+            break;
         default:
             Warn("ignoring chunk: {}", FourCC(head.id));
         }
