@@ -101,7 +101,11 @@ int EncodeMain(int argc, char **argv) {
     params.predictor_count = args.predictor_count;
     std::vector<vadpcm_vector> codebook(kVADPCMEncodeOrder *
                                         args.predictor_count);
-    std::vector<uint8_t> encoded(frame_count * kVADPCMFrameByteSize);
+    size_t encoded_size = frame_count * kVADPCMFrameByteSize;
+    std::vector<uint8_t> encoded((encoded_size + 1) & ~(size_t)1);
+    if (!encoded.empty()) {
+        encoded.back() = 0;
+    }
     size_t scratch_size = vadpcm_encode_scratch_size(frame_count);
     void *scratch = std::malloc(scratch_size);
     if (scratch == nullptr) {
@@ -178,9 +182,9 @@ int EncodeMain(int argc, char **argv) {
             return 1;
         }
         Stats st = Stats::Calculate(sample_count, input.data(), decoded.data());
-        const double sigdb = 10.0 * std::log10(st.signal);
-        const double noisedb = 10.0 * std::log10(st.noise);
         if (args.show_stats) {
+            const double sigdb = 10.0 * std::log10(st.signal);
+            const double noisedb = 10.0 * std::log10(st.noise);
             fmt::print(
                 "Signal level:       {:5.1f} dB\n"
                 "Noise level:        {:5.1f} dB\n"
@@ -192,10 +196,10 @@ int EncodeMain(int argc, char **argv) {
             out.Create(args.stats_file);
             fmt::print(out.file(),
                        "{{\n"
-                       "  \"signalLevelDB\": {:.3f},\n"
-                       "  \"errorLevelDB\": {:.3f}\n"
+                       "  \"signalLevel\": {:.7e},\n"
+                       "  \"errorLevel\": {:.7e}\n"
                        "}}\n",
-                       sigdb, noisedb);
+                       std::sqrt(st.signal), std::sqrt(st.noise));
         }
     }
 
