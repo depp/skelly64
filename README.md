@@ -54,3 +54,9 @@ Building requires the following prerequisites:
 If you are making changes to Skelly 64, you should enable C++ compiler warnings. The easiest way to do this is by adding a file named `.user.bazelrc` to the top-level directory, containing the following configuration:
 
     build --//bazel:warnings=error
+
+To update the Go dependencies:
+
+    go get -u ./...
+    go mod tidy
+    bazel run //:gazelle -- -from_file=go.mod
