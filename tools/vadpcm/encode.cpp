@@ -3,6 +3,7 @@
 // Mozilla Public License, version 2.0. See LICENSE.txt for details.
 #include "lib/cpp/bswap.hpp"
 #include "lib/cpp/error.hpp"
+#include "lib/cpp/file.hpp"
 #include "lib/cpp/flag.hpp"
 #include "lib/cpp/log.hpp"
 #include "lib/cpp/path.hpp"
@@ -31,8 +32,9 @@ namespace {
 struct Args {
     std::string input;
     std::string output;
-    int predictor_count;
-    bool show_stats;
+    int predictor_count = 4;
+    bool show_stats = false;
+    std::string stats_file;
 };
 
 void Help(FILE *fp, flag::Parser &fl) {
@@ -41,7 +43,6 @@ void Help(FILE *fp, flag::Parser &fl) {
 }
 
 void InitFlagParser(Args &args, flag::Parser &fl) {
-    args.predictor_count = 4;
     fl.SetHelp(Help);
     fl.AddPositional(flag::String(&args.input), flag::PositionalType::Required,
                      "input", "input audio file");
@@ -52,6 +53,8 @@ void InitFlagParser(Args &args, flag::Parser &fl) {
                "1 <= N <= 16, default 4",
                "N");
     fl.AddBoolFlag(&args.show_stats, "show-stats", "show encoding statistics");
+    fl.AddFlag(flag::String(&args.stats_file), "stats-out",
+               "write stats in JSON format to file", "file");
 }
 
 Args ParseArgs(int argc, char **argv) {
@@ -163,7 +166,7 @@ int EncodeMain(int argc, char **argv) {
     output.WriteChunkRaw(encoded.data(), encoded.size());
     output.Commit();
 
-    if (args.show_stats) {
+    if (args.show_stats || !args.stats_file.empty()) {
         std::vector<int16_t> decoded(sample_count);
         vadpcm_vector state{};
         err = vadpcm_decode(args.predictor_count, kVADPCMEncodeOrder,
@@ -177,11 +180,23 @@ int EncodeMain(int argc, char **argv) {
         Stats st = Stats::Calculate(sample_count, input.data(), decoded.data());
         const double sigdb = 10.0 * std::log10(st.signal);
         const double noisedb = 10.0 * std::log10(st.noise);
-        fmt::print(
-            "Signal level:       {:5.1f} dB\n"
-            "Noise level:        {:5.1f} dB\n"
-            "Signal-noise ratio: {:5.1f} dB\n",
-            sigdb, noisedb, sigdb - noisedb);
+        if (args.show_stats) {
+            fmt::print(
+                "Signal level:       {:5.1f} dB\n"
+                "Noise level:        {:5.1f} dB\n"
+                "Signal-noise ratio: {:5.1f} dB\n",
+                sigdb, noisedb, sigdb - noisedb);
+        }
+        if (!args.stats_file.empty()) {
+            util::OutputFile out;
+            out.Create(args.stats_file);
+            fmt::print(out.file(),
+                       "{{\n"
+                       "  \"signalLevelDB\": {:.3f},\n"
+                       "  \"errorLevelDB\": {:.3f}\n"
+                       "}}\n",
+                       sigdb, noisedb);
+        }
     }
 
     return 0;

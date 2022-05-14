@@ -62,6 +62,7 @@ public:
     // Read the given number of bytes, and throw an error on failure.
     void ReadExact(void *ptr, size_t amt);
 
+    using File::file;
     using File::name;
     using File::Seek;
 };
@@ -74,6 +75,7 @@ public:
     // Commit all data to disk.
     void Commit();
 
+    using File::file;
     using File::name;
     using File::Seek;
 
