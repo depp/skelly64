@@ -11,11 +11,13 @@
 #include "tools/vadpcm/aiff.hpp"
 #include "tools/vadpcm/audiofile.hpp"
 #include "tools/vadpcm/defs.hpp"
+#include "tools/vadpcm/stats.hpp"
 #include "tools/vadpcm/vadpcm.hpp"
 
 #include <fmt/format.h>
 
 #include <cassert>
+#include <cmath>
 #include <stdexcept>
 
 using util::Err;
@@ -30,6 +32,7 @@ struct Args {
     std::string input;
     std::string output;
     int predictor_count;
+    bool show_stats;
 };
 
 void Help(FILE *fp, flag::Parser &fl) {
@@ -48,6 +51,7 @@ void InitFlagParser(Args &args, flag::Parser &fl) {
                "encode with a codebook containing N predictors, "
                "1 <= N <= 16, default 4",
                "N");
+    fl.AddBoolFlag(&args.show_stats, "show-stats", "show encoding statistics");
 }
 
 Args ParseArgs(int argc, char **argv) {
@@ -83,10 +87,11 @@ int EncodeMain(int argc, char **argv) {
     // Read input. Pad with zeroes.
     AudioFormat afmt = AudioFormatForExtension(util::Extension(args.input));
     AudioFile fl = AudioFile::Load(args.input, afmt);
-    std::vector<int16_t> &data = fl.data();
-    size_t frame_count =
-        (data.size() + kVADPCMFrameSampleCount - 1) / kVADPCMFrameSampleCount;
-    data.resize(frame_count * kVADPCMFrameSampleCount, 0);
+    std::vector<int16_t> &input = fl.data();
+    const size_t frame_count =
+        (input.size() + kVADPCMFrameSampleCount - 1) / kVADPCMFrameSampleCount;
+    const size_t sample_count = frame_count * kVADPCMFrameSampleCount;
+    input.resize(sample_count, 0);
 
     // Encode as VADPCM.
     vadpcm_params params{};
@@ -100,7 +105,7 @@ int EncodeMain(int argc, char **argv) {
         throw std::bad_alloc();
     }
     vadpcm_error err = vadpcm_encode(&params, codebook.data(), frame_count,
-                                     encoded.data(), data.data(), scratch);
+                                     encoded.data(), input.data(), scratch);
     std::free(scratch);
     if (err != 0) {
         util::Err("could not encode VADPCM: {}", VADPCMErrorMessage(err));
@@ -113,7 +118,7 @@ int EncodeMain(int argc, char **argv) {
     {
         CommonChunk comm{};
         comm.num_channels = 1;
-        comm.num_sample_frames = frame_count * kVADPCMFrameSampleCount;
+        comm.num_sample_frames = sample_count;
         comm.sample_size = 16;
         comm.sample_rate =
             Extended::FromDouble(static_cast<double>(fl.sample_rate()));
@@ -157,6 +162,27 @@ int EncodeMain(int argc, char **argv) {
     }
     output.WriteChunkRaw(encoded.data(), encoded.size());
     output.Commit();
+
+    if (args.show_stats) {
+        std::vector<int16_t> decoded(sample_count);
+        vadpcm_vector state{};
+        err = vadpcm_decode(args.predictor_count, kVADPCMEncodeOrder,
+                            codebook.data(), &state, frame_count,
+                            decoded.data(), encoded.data());
+        if (err != 0) {
+            util::Err("could not decode encoded VADCM: {}",
+                      VADPCMErrorMessage(err));
+            return 1;
+        }
+        Stats st = Stats::Calculate(sample_count, input.data(), decoded.data());
+        const double sigdb = 10.0 * std::log10(st.signal);
+        const double noisedb = 10.0 * std::log10(st.noise);
+        fmt::print(
+            "Signal level:       {:5.1f} dB\n"
+            "Noise level:        {:5.1f} dB\n"
+            "Signal-noise ratio: {:5.1f} dB\n",
+            sigdb, noisedb, sigdb - noisedb);
+    }
 
     return 0;
 }

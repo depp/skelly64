@@ -12,6 +12,8 @@ cc_binary(
         "defs.hpp",
         "encode.cpp",
         "main.cpp",
+        "stats.cpp",
+        "stats.hpp",
         "vadpcm.cpp",
         "vadpcm.hpp",
     ],
