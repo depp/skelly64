@@ -424,7 +424,7 @@ static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
             double error = 0.0;
             s0 = state[0];
             s1 = state[1];
-            // int bias = shift > 0 ? 1 << (shift - 1) : 0;
+            int bias = shift > 0 ? 1 << (shift - 1) : 0;
             for (int vector = 0; vector < 2; vector++) {
                 for (int i = 0; i < 8; i++) {
                     accumulator[i] = s0 * pvec[0].v[i] + s1 * pvec[1].v[i];
@@ -433,7 +433,7 @@ static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
                     s = src[frame * 16 + vector * 8 + i];
                     a = accumulator[i] >> 11;
                     // Calculate the residual, encode as 4 bits.
-                    r = (s - a) >> shift;
+                    r = (s - a + bias) >> shift;
                     if (r > 7) {
                         r = 7;
                     } else if (r < -8) {
