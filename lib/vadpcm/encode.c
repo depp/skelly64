@@ -372,11 +372,21 @@ size_t vadpcm_encode_scratch_size(size_t frame_count) {
     return frame_count * (sizeof(float) * 8 + 1);
 }
 
+static uint32_t vadpcm_rng(uint32_t state) {
+    // 0xd9f5: Computationally Easy, Spectrally Good Multipliers for
+    // Congruential Pseudorandom Number Generators, Steele and Vigna, Table 7,
+    // p.18
+    //
+    // 0x6487ed51: pi << 29, relatively prime.
+    return state * 0xd9f5 + 0x6487ed51;
+}
+
 // Encode audio as VADPCM, given the assignment of each frame to a predictor.
 static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
                                const int16_t *restrict src,
                                const uint8_t *restrict predictors,
                                const struct vadpcm_vector *restrict codebook) {
+    uint32_t rng_state = 0;
     uint8_t *destptr = dest;
     int state[4];
     state[0] = 0;
@@ -419,12 +429,13 @@ static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
         double best_error = 0.0;
         int min_shift = shift > 0 ? shift - 1 : 0;
         int max_shift = shift < 12 ? shift + 1 : 12;
+        uint32_t init_state = rng_state;
         for (shift = min_shift; shift <= max_shift; shift++) {
+            rng_state = init_state;
             uint8_t fout[8];
             double error = 0.0;
             s0 = state[0];
             s1 = state[1];
-            int bias = shift > 0 ? 1 << (shift - 1) : 0;
             for (int vector = 0; vector < 2; vector++) {
                 for (int i = 0; i < 8; i++) {
                     accumulator[i] = s0 * pvec[0].v[i] + s1 * pvec[1].v[i];
@@ -433,6 +444,8 @@ static void vadpcm_encode_data(size_t frame_count, void *restrict dest,
                     s = src[frame * 16 + vector * 8 + i];
                     a = accumulator[i] >> 11;
                     // Calculate the residual, encode as 4 bits.
+                    int bias = (rng_state >> 16) >> (16 - shift);
+                    rng_state = vadpcm_rng(rng_state);
                     r = (s - a + bias) >> shift;
                     if (r > 7) {
                         r = 7;
@@ -530,10 +543,6 @@ static void test_autocorr(void) {
     // the autocorrelation matrix.
     static const float coeff[2] = {0.5f, 0.25f};
 
-    // Computationally Easy, Spectrally Good Multipliers for Congruential
-    // Pseudorandom Number Generators, Steele and Vigna, Table 7, p.18
-    const uint32_t a = 0xd9f5;
-    const uint32_t c = 0x6487ed51; // pi << 29.
     uint32_t state = 1;
     int failures = 0;
     for (int test = 0; test < 10; test++) {
@@ -548,7 +557,7 @@ static void test_autocorr(void) {
             for (int j = 0; j < n; j++) {
                 // Random number in -2^13..2^13-1.
                 int s = (int)(state >> 19) - (1 << 12);
-                state = state * a + c;
+                state = vadpcm_rng(state);
                 for (int k = 0; k < m; k++) {
                     data[j * m + k] += s;
                 }
