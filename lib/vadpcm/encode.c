@@ -317,9 +317,14 @@ static void vadpcm_assign_predictors(size_t frame_count, int predictor_count,
 static void vadpcm_make_vectors(
     const double coeff[restrict static 2],
     struct vadpcm_vector vectors[restrict static 2]) {
+    double scale = (double)(1 << 11);
     for (int i = 0; i < 2; i++) {
-        double x1 = i != 0;
-        double x2 = i == 0;
+        double x1 = 0.0, x2 = 0.0;
+        if (i == 0) {
+            x2 = scale;
+        } else {
+            x1 = scale;
+        }
         for (int j = 0; j < 8; j++) {
             double x = coeff[0] * x1 + coeff[1] * x2;
             int value;
