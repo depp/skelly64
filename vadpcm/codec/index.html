@@ -8,14 +8,14 @@
       
       
       
-        <link rel="canonical" href="https://depp.github.io/skelly64/font/ttf_example/">
+        <link rel="canonical" href="https://depp.github.io/skelly64/vadpcm/codec/">
       
       <link rel="icon" href="../../assets/images/favicon.png">
       <meta name="generator" content="mkdocs-1.3.0, mkdocs-material-8.2.15">
     
     
       
-        <title>TTF Example - Skelly 64 Documentation</title>
+        <title>VADPCM Codec - Skelly 64 Documentation</title>
       
     
     
@@ -61,7 +61,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#ttf-example" class="md-skip">
+        <a href="#vadpcm-codec" class="md-skip">
           Skip to content
         </a>
       
@@ -94,7 +94,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              TTF Example
+              VADPCM Codec
             
           </span>
         </div>
@@ -232,12 +232,14 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
       
       
       
@@ -260,7 +262,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../vadpcm/" class="md-nav__link">
+      <a href="../" class="md-nav__link">
         Audio Overview
       </a>
     </li>
@@ -274,7 +276,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../vadpcm/decode/" class="md-nav__link">
+      <a href="../decode/" class="md-nav__link">
         Decode VADPCM
       </a>
     </li>
@@ -288,7 +290,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../vadpcm/encode/" class="md-nav__link">
+      <a href="../encode/" class="md-nav__link">
         Encode VADPCM
       </a>
     </li>
@@ -300,11 +302,134 @@
               
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="../../vadpcm/codec/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          VADPCM Codec
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         VADPCM Codec
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theory-of-operation" class="md-nav__link">
+    Theory of Operation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoded-data" class="md-nav__link">
+    Encoded Data
+  </a>
+  
+    <nav class="md-nav" aria-label="Encoded Data">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#codebook" class="md-nav__link">
+    Codebook
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audio-data" class="md-nav__link">
+    Audio Data
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decoding-process" class="md-nav__link">
+    Decoding Process
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-process" class="md-nav__link">
+    Encoding Process
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    Wire Format
+  </a>
+  
+    <nav class="md-nav" aria-label="Wire Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predictor-vectors" class="md-nav__link">
+    Predictor Vectors
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-chunk-aifc" class="md-nav__link">
+    Common Chunk (AIFC)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codebook-aifc" class="md-nav__link">
+    Codebook (AIFC)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audio-data_1" class="md-nav__link">
+    Audio Data
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -322,14 +447,12 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
       
       
       
@@ -352,7 +475,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../font/" class="md-nav__link">
         Overview
       </a>
     </li>
@@ -364,21 +487,11 @@
               
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../font/ttf_example/" class="md-nav__link">
         TTF Example
       </a>
-      
     </li>
   
 
@@ -390,7 +503,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../bitmap_example/" class="md-nav__link">
+      <a href="../../font/bitmap_example/" class="md-nav__link">
         Bitmap Example
       </a>
     </li>
@@ -516,6 +629,103 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#theory-of-operation" class="md-nav__link">
+    Theory of Operation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoded-data" class="md-nav__link">
+    Encoded Data
+  </a>
+  
+    <nav class="md-nav" aria-label="Encoded Data">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#codebook" class="md-nav__link">
+    Codebook
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audio-data" class="md-nav__link">
+    Audio Data
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#decoding-process" class="md-nav__link">
+    Decoding Process
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#encoding-process" class="md-nav__link">
+    Encoding Process
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wire-format" class="md-nav__link">
+    Wire Format
+  </a>
+  
+    <nav class="md-nav" aria-label="Wire Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#predictor-vectors" class="md-nav__link">
+    Predictor Vectors
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#common-chunk-aifc" class="md-nav__link">
+    Common Chunk (AIFC)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#codebook-aifc" class="md-nav__link">
+    Codebook (AIFC)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#audio-data_1" class="md-nav__link">
+    Audio Data
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -526,23 +736,277 @@
             <article class="md-content__inner md-typeset">
               
                 
-  <a href="https://github.com/depp/skelly64/edit/master/docs/font/ttf_example/index.md" title="Edit this page" class="md-content__button md-icon">
+  <a href="https://github.com/depp/skelly64/edit/master/docs/vadpcm/codec.md" title="Edit this page" class="md-content__button md-icon">
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>
   </a>
 
 
 
-<h1 id="ttf-example">TTF Example</h1>
-<p>This is a subset of the <a href="https://fonts.google.com/specimen/Alegreya">Alegreya Medium</a> font, rendered at size 16. The build scripts and data used to create this example are in the <a href="https://github.com/depp/skelly64/tree/main/examples/font_ttf">examples/font_ttf</a> folder.</p>
-<figure>
-  <img src="alegreya.png" width="128" height="256" alt="Glyphs from the Alegreya font, packed into a texture">
-  <figcaption>The packed textures</figcaption>
-</figure>
+<h1 id="vadpcm-codec">VADPCM Codec</h1>
+<p>This page describes the VADPCM codec in detail. With this information, you should be able to write your own VADPCM decoder.</p>
+<p>Writing an encoder is more difficult.</p>
+<h2 id="theory-of-operation">Theory of Operation</h2>
+<p>VADPCM uses <em>linear predictors</em> to predict what each sample of audio will be, based on the previous samples. The residual difference between the predicted value and the actual value is quantized to 4 bits. Each encoded frame of audio contains 16 samples with the same predictor coefficients and residual quantization.</p>
+<p>In theory, you decode a sample in two steps:</p>
+<ol>
+<li>
+<p>Predict the sample value from a linear combination of previous output samples.</p>
+</li>
+<li>
+<p>Add the residual value to the predicted value.</p>
+</li>
+</ol>
+<p>The actual decoding process is different, and is easy to vectorize using SIMD operations—this may be where the “V” in “VADPCM” comes from.</p>
+<h2 id="encoded-data">Encoded Data</h2>
+<p>VADPCM audio consists of two parts: the <strong>codebook</strong> (which contains predictors) and the <strong>audio data</strong>.</p>
+<h3 id="codebook">Codebook</h3>
+<p>The codebook contains the parameters necessary for decoding the associated audio data. A codebook has a predictor order, a predictor count, and an array of predictor vectors.</p>
+<dl>
+<dt><strong>Predictor Order</strong></dt>
+<dd>
+<p>The predictor order can theoretically be any number from 0 to 8, but in practice, it is always 2. This value is the order of the linear predictors in the codebook. The predictor order is limited by the size of the array used to track decoder state in the decoder, which is 8.</p>
+</dd>
+<dt><strong>Predictor Count</strong></dt>
+<dd>
+<p>The predictor count is just the number of predictors in the codebook. This can be any number from 1 to 16. It is limited by the number of bits used to encode predictors in the encoded audio data.</p>
+</dd>
+<dt><strong>Predictor Vectors</strong></dt>
+<dd>
+<p>The predictor vectors are vectors of 8 signed 16-bit numbers. These are pre-calculated values derived during the encoding process. The number of vectors is equal to the predictor order, multiplied by the number of predictors.</p>
+</dd>
+</dl>
+<h3 id="audio-data">Audio Data</h3>
+<p>The audio data is packed into frames. Each frame is 8 bytes and contains 9 samples of audio data, giving exactly 4.5 bits per sample. A frame contains a scaling factor, a predictor index, and residual audio data.</p>
+<dl>
+<dt><strong>Scaling Factor</strong></dt>
+<dd>
+<p>The scaling factor is a number in the range 0-12. This is used to scale the residual audio data. During decoding, the residual audio data is shifted left by the scaling factor. Values larger than 12 would result in overflow when shifting.</p>
+</dd>
+<dt><strong>Predictor Index</strong></dt>
+<dd>
+<p>The predictor index is a number 0-15, which is a reference to a set of predictor vectors in the codebook. The predictor vectors are used to predict the value of future audio samples from the previous output.</p>
+</dd>
+<dt><strong>Residual Audio Data</strong></dt>
+<dd>
+<p>The residual audio data is an array of 16 four-bit numbers. This contains the difference between the predicted sample data and the actual sample data, scaled down by the scaling factor.</p>
+</dd>
+</dl>
+<h2 id="decoding-process">Decoding Process</h2>
+<p>Decoding is done in vectors of 8 samples each. Each frame contains two vectors with a shared scaling factor and predictor index. Correctly decoding a frame requires the previous frame’s decoded output, which serves as the decoder state. The initial state is all zeroes. The process for decoding a vector is as follows:</p>
+<ol>
+<li>
+<p>Initialize an accumulator to all zeroes.</p>
+</li>
+<li>
+<p>For a predictor order of K, multiply each of the K predictor vectors by the corresponding last K output samples, and add them to the accumulator.</p>
+</li>
+<li>
+<p>For each index in the output vector I = 1..8,</p>
+<ol>
+<li>
+<p>Calculate the predicted output sample by shifting the corresponding element in the accumulator to the right by 11 bits.</p>
+</li>
+<li>
+<p>Scale the residual value by shifting it left by the frame’s scaling factor.</p>
+</li>
+<li>
+<p>Add the scaled residual value and the predicted output sample. This is the output sample.</p>
+</li>
+<li>
+<p>Shift the Kth predictor vector to the right by I elements, multiply this vector by the scaled residual value, and add this vector to the accumulator.</p>
+</li>
+</ol>
+</li>
+</ol>
+<p>In C, you can decode a vector of VADPCM like this:</p>
+<pre><code class="language-c">void decode(int predictor_order,
+            int scaling_factor,
+            int predictor[predictor_order][8],
+            int state[8],
+            int residual[8],
+            int output[8]) {
 
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Missing documentation—how was this created?</p>
-</div>
+  // Zero the accumulator.
+  int accumulator[8];
+  for (int i = 0; i &lt; 8; i++) {
+    accumulator[i] = 0;
+  }
+
+  // Add previous output to accumulator.
+  for (int i = 0; i &lt; predictor_order; i++) {
+    int previous_output = state[8 - predictor_order + i];
+    for (int j = 0; j &lt; 8; j++) {
+      accumulator[j] += predictor[i][j] * previous_output;
+    }
+  }
+
+  // Calculate each output sample, and update the accumulator.
+  for (int i = 0; i &lt; 8; i++) {
+    int scaled_residual = residual[i] &lt;&lt; scaling_factor;
+    output[i] = (accumulator[i] &gt;&gt; 11) + scaled_residual;
+    for (int j = 0; j &lt; 7 - i; j++) {
+      accumulator[i + 1 + j] +=
+          predictor[predictor_order - 1][j] * scaled_residual;
+    }
+  }
+
+  // New decoder state is equal to the output.
+  for (int i = 0; i &lt; 8; i++) {
+    state[i] = output[i];
+  }
+}
+</code></pre>
+<h2 id="encoding-process">Encoding Process</h2>
+<p>The Skelly 64 VADPCM encoder uses the following process to encode VADPCM:</p>
+<ol>
+<li>
+<p>Break the input into frames of 16 samples each.</p>
+</li>
+<li>
+<p>For each frame, calculate a 3x3 autocorrelation matrix.</p>
+</li>
+<li>
+<p>Using a clustering algorithm, assign each frame to predictors. This algorithm searches for assignments that minimize the residual. The residual can be calculated from the autocorrelation matrix and the predictor coefficients, and the optimum predictor coefficients can be calculated from the autocorrelation matrix.</p>
+</li>
+<li>
+<p>Calculate the predictor vectors from the optimum predictor coefficients for each predictor. This results in a codebook.</p>
+</li>
+<li>
+<p>With the codebook and predictor assignments, encode each frame as VADPCM.</p>
+</li>
+</ol>
+<h2 id="wire-format">Wire Format</h2>
+<p>Only AIFC files have a known way to carry VADPCM data. However, the codec is not explicitly tied to AIFC and could easily be adapted to other formats.</p>
+<h3 id="predictor-vectors">Predictor Vectors</h3>
+<p>Each predictor is stored, one after the other. For example, if there are N predictors and the predictor order is K, the predictor vectors will have the following format:</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor 1, vector 1</td>
+</tr>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor 1, vector 2</td>
+</tr>
+<tr>
+<td>…</td>
+<td>…</td>
+</tr>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor 1, vector K</td>
+</tr>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor 2, vector 1</td>
+</tr>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor 2, vector 2</td>
+</tr>
+<tr>
+<td>…</td>
+<td>…</td>
+</tr>
+<tr>
+<td><code>int16[8]</code></td>
+<td>Predictor N, vector K</td>
+</tr>
+</tbody>
+</table>
+<h3 id="common-chunk-aifc">Common Chunk (AIFC)</h3>
+<p>The <code>'COMM'</code> chunk for VADPCM-encoded AIFC files uses a sample size of 16 bits.</p>
+<p>The encoding type is <code>'VAPC'</code>, and the encoding name is <code>"VADPCM ~4-1"</code>.</p>
+<h3 id="codebook-aifc">Codebook (AIFC)</h3>
+<p>The <code>VADPCMCODES</code> application-specific chunk in an AIFC file contains the codebook. The chunk, including its header, has the following format:</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>uint32</code></td>
+<td>Chunk ID, <code>'APPL'</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>uint32</code></td>
+<td>Chunk size, starting after this field</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>uint32</code></td>
+<td>Application signature, <code>'stoc'</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td><code>uint8</code></td>
+<td>Length of chunk name, 11</td>
+</tr>
+<tr>
+<td>13</td>
+<td><code>char[11]</code></td>
+<td>Chunk name, <code>"VADPCMCODES"</code></td>
+</tr>
+<tr>
+<td>24</td>
+<td><code>uint16</code></td>
+<td>VADPCM codec version, 1</td>
+</tr>
+<tr>
+<td>26</td>
+<td><code>uint16</code></td>
+<td>Predictor order, 0-8</td>
+</tr>
+<tr>
+<td>28</td>
+<td><code>uint16</code></td>
+<td>Predictor count, 1-16</td>
+</tr>
+<tr>
+<td>30</td>
+<td><code>int16[]</code></td>
+<td>Predictor vectors</td>
+</tr>
+</tbody>
+</table>
+<h3 id="audio-data_1">Audio Data</h3>
+<p>A frame of audio data is stored as 9 bytes.</p>
+<table>
+<thead>
+<tr>
+<th>Offset</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td><code>uint8</code></td>
+<td>Control byte</td>
+</tr>
+<tr>
+<td>1</td>
+<td><code>uint8[8]</code></td>
+<td>Residual</td>
+</tr>
+</tbody>
+</table>
+<p>The control byte stores the scaling factor as the high four bits, and the predictor index in the low four bits.</p>
+<p>Each byte in the residual encodes a pair of two successive residual audio values, stored as signed four-bit numbers. The first sample in each pair is stored in the high four bits and the second sample is stored in the low four bits.</p>
 
               
             </article>
@@ -556,7 +1020,7 @@
     <nav class="md-footer__inner md-grid" aria-label="Footer">
       
         
-        <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview" rel="prev">
+        <a href="../encode/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Encode VADPCM" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
           </div>
@@ -565,20 +1029,20 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              Overview
+              Encode VADPCM
             </div>
           </div>
         </a>
       
       
         
-        <a href="../bitmap_example/" class="md-footer__link md-footer__link--next" aria-label="Next: Bitmap Example" rel="next">
+        <a href="../../font/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Bitmap Example
+              Overview
             </div>
           </div>
           <div class="md-footer__button md-icon">

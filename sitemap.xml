@@ -2,52 +2,67 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://depp.github.io/skelly64/</loc>
-         <lastmod>2021-08-16</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://depp.github.io/skelly64/audio/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/building/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/image/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/model/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/model_format/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/rom/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/font/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/font/bitmap_example/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://depp.github.io/skelly64/font/ttf_example/</loc>
-         <lastmod>2021-08-16</lastmod>
+         <lastmod>2022-05-16</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://depp.github.io/skelly64/vadpcm/</loc>
+         <lastmod>2022-05-16</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://depp.github.io/skelly64/vadpcm/codec/</loc>
+         <lastmod>2022-05-16</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://depp.github.io/skelly64/vadpcm/decode/</loc>
+         <lastmod>2022-05-16</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://depp.github.io/skelly64/vadpcm/encode/</loc>
+         <lastmod>2022-05-16</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
