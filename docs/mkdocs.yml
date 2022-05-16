@@ -4,6 +4,7 @@ repo_url: https://github.com/depp/skelly64/
 
 markdown_extensions:
   - admonition
+  - def_list
 
 theme:
   name: material
@@ -11,7 +12,11 @@ theme:
 nav:
   - Introduction: index.md
   - Building: building.md
-  - Audio Converter: audio.md
+  - VADPCM Audio:
+    - Audio Overview: vadpcm/index.md
+    - Decode VADPCM: vadpcm/decode.md
+    - Encode VADPCM: vadpcm/encode.md
+    - VADPCM Codec: vadpcm/codec.md
   - Font Builder:
     - Overview: font/index.md
     - TTF Example: font/ttf_example/index.md
