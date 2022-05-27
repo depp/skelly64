@@ -60,6 +60,14 @@ func (c *RawChunk) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
 
 // =============================================================================
 
+const (
+	// PCMType is the compression type for PCM (uncompressed) audio.
+	PCMType = "NONE"
+
+	// PCMName is the descriptive name for PCM (uncompressed) audio.
+	PCMName = "not compressed"
+)
+
 // A Common is the common chunk in an AIFF file.
 type Common struct {
 	NumChannels     int

@@ -15,7 +15,7 @@ cc_library(
         "vadpcm.h",
     ],
     copts = COPTS,
-    visibility = ["//tools:__subpackages__"],
+    visibility = ["//visibility:public"],
 )
 
 cc_test(
