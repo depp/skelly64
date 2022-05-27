@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/depp/extended"
 	"github.com/depp/skelly64/lib/audio/aiff"
 	"github.com/depp/skelly64/lib/audio/metadata"
 	"github.com/depp/skelly64/lib/getpath"
@@ -206,7 +207,7 @@ func (pcm *pcmdata) write(opts *options) error {
 			NumChannels:     1,
 			NumFrames:       len(pcm.samples),
 			SampleSize:      16,
-			SampleRate:      aiff.Float80(float64(pcm.rate)),
+			SampleRate:      extended.FromFloat64(float64(pcm.rate)),
 			Compression:     [4]byte{'N', 'O', 'N', 'E'},
 			CompressionName: "no compression",
 		},

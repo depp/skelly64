@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+
+	"github.com/depp/extended"
 )
 
 // StardardVersion is the recognized AIFF-C version number.
@@ -63,7 +65,7 @@ type Common struct {
 	NumChannels     int
 	NumFrames       int
 	SampleSize      int
-	SampleRate      [10]byte
+	SampleRate      extended.Extended
 	Compression     [4]byte
 	CompressionName string
 }
@@ -82,7 +84,7 @@ func (c *Common) parseChunk(data []byte, compressed bool) error {
 	c.NumChannels = int(binary.BigEndian.Uint16(data[0:2]))
 	c.NumFrames = int(binary.BigEndian.Uint32(data[2:6]))
 	c.SampleSize = int(binary.BigEndian.Uint16(data[6:8]))
-	copy(c.SampleRate[:], data[8:])
+	c.SampleRate = extended.FromBytesBigEndian(data[8:])
 	if compressed {
 		copy(c.Compression[:], data[18:22])
 		n := int(data[22])
@@ -115,7 +117,7 @@ func (c *Common) ChunkData(compressed bool) (id [4]byte, data []byte, err error)
 	binary.BigEndian.PutUint16(data[0:2], uint16(c.NumChannels))
 	binary.BigEndian.PutUint32(data[2:6], uint32(c.NumFrames))
 	binary.BigEndian.PutUint16(data[6:8], uint16(c.SampleSize))
-	copy(data[8:], c.SampleRate[:])
+	c.SampleRate.PutBytesBigEndian(data[8:])
 	if compressed {
 		copy(data[18:22], c.Compression[:])
 		data[22] = byte(len(c.CompressionName))

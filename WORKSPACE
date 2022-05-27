@@ -62,6 +62,13 @@ go_repository(
     version = "v0.0.0-20180917221912-90fa682c2a6e",
 )
 
+go_repository(
+    name = "com_github_depp_extended",
+    importpath = "github.com/depp/extended",
+    sum = "h1:F6YUZonZORmHvHneCtC6J0QOcjzd//MpEKrSEMj6W+Y=",
+    version = "v1.0.0",
+)
+
 gazelle_dependencies()
 
 # ==============================================================================

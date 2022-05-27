@@ -4,8 +4,10 @@ go_library(
     name = "aiff",
     srcs = [
         "aiff.go",
-        "extended.go",
     ],
     importpath = "github.com/depp/skelly64/lib/audio/aiff",
     visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_depp_extended//:go_default_library",
+    ],
 )

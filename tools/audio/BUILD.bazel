@@ -10,5 +10,6 @@ go_binary(
         "//lib/audio/aiff",
         "//lib/audio/metadata",
         "//lib/getpath",
+        "@com_github_depp_extended//:go_default_library",
     ],
 )
