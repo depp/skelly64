@@ -1,7 +1,6 @@
 package aiff
 
 import (
-	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -22,7 +21,7 @@ type AIFF struct {
 
 // IsCompressed returns true if this is a compressed AIFF file.
 func (a *AIFF) IsCompressed() bool {
-	return !bytes.Equal(a.Common.Compression[:], []byte("NONE"))
+	return a.Common.IsComprsesed()
 }
 
 // A Chunk is a piece of data in an AIFF file.
@@ -89,6 +88,7 @@ func (c *Common) parseChunk(data []byte, compressed bool) error {
 			return fmt.Errorf("invalid common chunk: len = %d, should be 18", len(data))
 		}
 	}
+	_ = data[:18]
 	c.NumChannels = int(binary.BigEndian.Uint16(data[0:2]))
 	c.NumFrames = int(binary.BigEndian.Uint32(data[2:6]))
 	c.SampleSize = int(binary.BigEndian.Uint16(data[6:8]))
@@ -102,8 +102,8 @@ func (c *Common) parseChunk(data []byte, compressed bool) error {
 		}
 		c.CompressionName = string(rest)
 	} else {
-		copy(c.Compression[:], "NONE")
-		c.CompressionName = "not compressed"
+		copy(c.Compression[:], PCMType)
+		c.CompressionName = PCMName
 	}
 	return nil
 }
@@ -117,7 +117,7 @@ func (c *Common) ChunkData(compressed bool) (id [4]byte, data []byte, err error)
 		}
 		data = make([]byte, 23+len(c.CompressionName))
 	} else {
-		if !bytes.Equal(c.Compression[:], []byte("NONE")) {
+		if c.IsComprsesed() {
 			return id, data, errors.New("data is compressed, must use AIFF-C format")
 		}
 		data = make([]byte, 18)
@@ -132,6 +132,11 @@ func (c *Common) ChunkData(compressed bool) (id [4]byte, data []byte, err error)
 		copy(data[23:], c.CompressionName)
 	}
 	return
+}
+
+// IsCompressed returns true if this belongs to a compressed AIFF file.
+func (c *Common) IsComprsesed() bool {
+	return string(c.Compression[:]) != PCMType
 }
 
 // =============================================================================
@@ -549,13 +554,13 @@ func Parse(data []byte) (*AIFF, error) {
 		return nil, errors.New("AIFF too short")
 	}
 	header := data[0:12:12]
-	if !bytes.Equal(header[0:4], []byte("FORM")) {
+	if string(header[0:4]) != "FORM" {
 		return nil, errors.New("not an AIFF file")
 	}
 	var compressed bool
-	switch {
-	case bytes.Equal(header[8:12], []byte("AIFF")):
-	case bytes.Equal(header[8:12], []byte("AIFC")):
+	switch string(header[8:12]) {
+	case "AIFF":
+	case "AIFC":
 		compressed = true
 	default:
 		return nil, errors.New("not an AIFF file")
