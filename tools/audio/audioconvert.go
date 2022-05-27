@@ -38,7 +38,7 @@ func getArgs() (o options, err error) {
 	flag.StringVar(&o.sox, "sox", "", "sox executable")
 	flag.Parse()
 	if args := flag.Args(); len(args) != 0 {
-		return o, fmt.Errorf("unexpected argumen: %q", args[0])
+		return o, fmt.Errorf("unexpected argument: %q", args[0])
 	}
 	if o.input == "" {
 		return o, errors.New("missing required flag -input")
