@@ -61,7 +61,13 @@ var cmdDecode = cobra.Command{
 		if ext := filepath.Ext(filein); !strings.EqualFold(ext, ".aifc") {
 			logrus.Warn("input file does not have .aifc extension")
 		}
-		if ext := filepath.Ext(fileout); !strings.EqualFold(ext, ".aiff") && !strings.EqualFold(ext, ".aifc") {
+		var kind aiff.Kind
+		switch ext := filepath.Ext(fileout); {
+		case strings.EqualFold(ext, ".aiff"):
+			kind = aiff.AIFFKind
+		case strings.EqualFold(ext, ".aifc"):
+			kind = aiff.AIFCKind
+		default:
 			return fmt.Errorf("output file has unknown extension: %q", ext)
 		}
 
@@ -134,7 +140,7 @@ var cmdDecode = cobra.Command{
 			},
 			Chunks: chunks,
 		}
-		data, err = o.Write(strings.EqualFold(filepath.Ext(fileout), ".aifc"))
+		data, err = o.Write(kind)
 		if err != nil {
 			return err
 		}

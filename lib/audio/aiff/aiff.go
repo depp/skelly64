@@ -8,6 +8,17 @@ import (
 	"github.com/depp/extended"
 )
 
+// A Kind is a kind of AIFF or AIFF-C file.
+type Kind uint32
+
+const (
+	// AIFFKind indicates the original AIFF format.
+	AIFFKind Kind = iota + 1
+
+	// AIFCKind indicates the extended AIFF-C format.
+	AIFCKind
+)
+
 // StardardVersion is the recognized AIFF-C version number.
 const StandardVersion = 0xA2805140
 
@@ -26,12 +37,12 @@ func (a *AIFF) IsCompressed() bool {
 
 // A Chunk is a piece of data in an AIFF file.
 type Chunk interface {
-	ChunkData(compressed bool) (id [4]byte, data []byte, err error)
+	ChunkData(kind Kind) (id [4]byte, data []byte, err error)
 }
 
 type parsableChunk interface {
 	Chunk
-	parseChunk(data []byte, compressed bool) error
+	parseChunk(data []byte, kind Kind) error
 }
 
 // =============================================================================
@@ -43,7 +54,7 @@ type RawChunk struct {
 }
 
 // parseChunk implements the Chunk interface.
-func (c *RawChunk) parseChunk(data []byte, _ bool) error {
+func (c *RawChunk) parseChunk(data []byte, _ Kind) error {
 	d := make([]byte, len(data))
 	copy(d, data)
 	c.Data = d
@@ -51,7 +62,7 @@ func (c *RawChunk) parseChunk(data []byte, _ bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *RawChunk) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *RawChunk) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	id = c.ID
 	data = c.Data
 	return
@@ -78,22 +89,25 @@ type Common struct {
 }
 
 // parseChunk implements the Chunk interface.
-func (c *Common) parseChunk(data []byte, compressed bool) error {
-	if compressed {
-		if len(data) < 23 {
-			return fmt.Errorf("invalid common chunk: len = %d, should be at least 23", len(data))
-		}
-	} else {
+func (c *Common) parseChunk(data []byte, kind Kind) error {
+	switch kind {
+	case AIFFKind:
 		if len(data) != 18 {
 			return fmt.Errorf("invalid common chunk: len = %d, should be 18", len(data))
 		}
+	case AIFCKind:
+		if len(data) < 23 {
+			return fmt.Errorf("invalid common chunk: len = %d, should be at least 23", len(data))
+		}
+	default:
+		return errors.New("invalid AIFF kind")
 	}
 	_ = data[:18]
 	c.NumChannels = int(binary.BigEndian.Uint16(data[0:2]))
 	c.NumFrames = int(binary.BigEndian.Uint32(data[2:6]))
 	c.SampleSize = int(binary.BigEndian.Uint16(data[6:8]))
 	c.SampleRate = extended.FromBytesBigEndian(data[8:])
-	if compressed {
+	if kind == AIFCKind {
 		copy(c.Compression[:], data[18:22])
 		n := int(data[22])
 		rest := data[23:]
@@ -109,24 +123,27 @@ func (c *Common) parseChunk(data []byte, compressed bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *Common) ChunkData(compressed bool) (id [4]byte, data []byte, err error) {
+func (c *Common) ChunkData(kind Kind) (id [4]byte, data []byte, err error) {
 	copy(id[:], "COMM")
-	if compressed {
-		if len(c.CompressionName) > 255 {
-			return id, data, errors.New("compression name is too long")
-		}
-		data = make([]byte, 23+len(c.CompressionName))
-	} else {
+	switch kind {
+	case AIFFKind:
 		if c.IsComprsesed() {
 			return id, data, errors.New("data is compressed, must use AIFF-C format")
 		}
 		data = make([]byte, 18)
+	case AIFCKind:
+		if len(c.CompressionName) > 255 {
+			return id, data, errors.New("compression name is too long")
+		}
+		data = make([]byte, 23+len(c.CompressionName))
+	default:
+		return id, data, errors.New("invalid AIFF kind")
 	}
 	binary.BigEndian.PutUint16(data[0:2], uint16(c.NumChannels))
 	binary.BigEndian.PutUint32(data[2:6], uint32(c.NumFrames))
 	binary.BigEndian.PutUint16(data[6:8], uint16(c.SampleSize))
 	c.SampleRate.PutBytesBigEndian(data[8:])
-	if compressed {
+	if kind == AIFCKind {
 		copy(data[18:22], c.Compression[:])
 		data[22] = byte(len(c.CompressionName))
 		copy(data[23:], c.CompressionName)
@@ -147,8 +164,8 @@ type FormatVersion struct {
 }
 
 // parseChunk implements the Chunk interface.
-func (c *FormatVersion) parseChunk(data []byte, compressed bool) error {
-	if !compressed {
+func (c *FormatVersion) parseChunk(data []byte, kind Kind) error {
+	if kind != AIFCKind {
 		return errors.New("unexpected FVER in uncompressed file")
 	}
 	if len(data) != 4 {
@@ -159,8 +176,8 @@ func (c *FormatVersion) parseChunk(data []byte, compressed bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *FormatVersion) ChunkData(compressed bool) (id [4]byte, data []byte, err error) {
-	if !compressed {
+func (c *FormatVersion) ChunkData(kind Kind) (id [4]byte, data []byte, err error) {
+	if kind != AIFCKind {
 		return id, data, errors.New("cannot write FVER to compressed file")
 	}
 	copy(id[:], "FVER")
@@ -179,7 +196,7 @@ type SoundData struct {
 }
 
 // parseChunk implements the Chunk interface.
-func (c *SoundData) parseChunk(data []byte, _ bool) error {
+func (c *SoundData) parseChunk(data []byte, _ Kind) error {
 	if len(data) < 8 {
 		return errors.New("sound data chunk too short")
 	}
@@ -192,7 +209,7 @@ func (c *SoundData) parseChunk(data []byte, _ bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *SoundData) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *SoundData) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	copy(id[:], "SSND")
 	data = make([]byte, len(c.Data)+8)
 	binary.BigEndian.PutUint32(data[0:4], c.Offset)
@@ -215,7 +232,7 @@ type Markers struct {
 	Markers []Marker
 }
 
-func (c *Markers) parseChunk(data []byte, _ bool) error {
+func (c *Markers) parseChunk(data []byte, _ Kind) error {
 	count := int(binary.BigEndian.Uint16(data))
 	c.Markers = make([]Marker, count)
 	d := data[2:]
@@ -241,7 +258,7 @@ func (c *Markers) parseChunk(data []byte, _ bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *Markers) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *Markers) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	copy(id[:], "MARK")
 	n := 2
 	for _, m := range c.Markers {
@@ -311,7 +328,7 @@ type Instrument struct {
 	ReleaseLoop  Loop
 }
 
-func (c *Instrument) parseChunk(data []byte, _ bool) error {
+func (c *Instrument) parseChunk(data []byte, _ Kind) error {
 	if len(data) < 20 {
 		return errors.New("instrument chunk too short")
 	}
@@ -328,7 +345,7 @@ func (c *Instrument) parseChunk(data []byte, _ bool) error {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *Instrument) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *Instrument) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	copy(id[:], "INST")
 	data = make([]byte, 20)
 	data[0] = byte(c.BaseNote)
@@ -352,7 +369,7 @@ type ApplicationData struct {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *ApplicationData) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *ApplicationData) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	copy(id[:], "APPL")
 	data = make([]byte, 4+len(c.Data))
 	copy(data, c.Signature[:])
@@ -426,7 +443,7 @@ type VADPCMCodes struct {
 const vadpcmVectorsize = 8
 
 // ChunkData implements the Chunk interface.
-func (c *VADPCMCodes) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *VADPCMCodes) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	tsize := c.Order * c.NumEntries * vadpcmVectorsize
 	if tsize != len(c.Table) {
 		return id, data, fmt.Errorf("incorrect VADPCM table size: table has size %d, should be %d", len(c.Table), tsize)
@@ -506,7 +523,7 @@ type VADPCMLoops struct {
 }
 
 // ChunkData implements the Chunk interface.
-func (c *VADPCMLoops) ChunkData(_ bool) (id [4]byte, data []byte, err error) {
+func (c *VADPCMLoops) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 	adata := make([]byte, 4+VADPCMLoopSize*len(c.Loops))
 	binary.BigEndian.PutUint16(adata, 1)
 	binary.BigEndian.PutUint16(adata[2:], uint16(len(c.Loops)))
@@ -560,11 +577,12 @@ func Parse(data []byte) (*AIFF, error) {
 	if string(header[0:4]) != "FORM" {
 		return nil, errors.New("not an AIFF file")
 	}
-	var compressed bool
+	var kind Kind
 	switch string(header[8:12]) {
 	case "AIFF":
+		kind = AIFFKind
 	case "AIFC":
-		compressed = true
+		kind = AIFCKind
 	default:
 		return nil, ErrNotAIFF
 	}
@@ -632,7 +650,7 @@ func Parse(data []byte) (*AIFF, error) {
 			copy(r.ID[:], ch[:4])
 			ck = r
 		}
-		if err := ck.parseChunk(cdata, compressed); err != nil {
+		if err := ck.parseChunk(cdata, kind); err != nil {
 			return nil, fmt.Errorf("could not parse %q chunk: %w", ch[:4], err)
 		}
 		chunks = append(chunks, ck)
@@ -640,9 +658,6 @@ func Parse(data []byte) (*AIFF, error) {
 	if !hasCommon {
 		return nil, errors.New("missing common chunk")
 	}
-	// if compressed && !hasFVer {
-	// 	return nil, errors.New("missing FVER chunk")
-	// }
 	if a.Data == nil {
 		return nil, errors.New("missign data chunk")
 	}
@@ -650,24 +665,28 @@ func Parse(data []byte) (*AIFF, error) {
 	return &a, nil
 }
 
-func (a *AIFF) Write(compressed bool) ([]byte, error) {
-	if !compressed && a.IsCompressed() {
-		return nil, errors.New("compressed files cannot be written as AIFF")
-	}
+func (a *AIFF) Write(kind Kind) ([]byte, error) {
 	rchunks := make([]RawChunk, 0, len(a.Chunks)+1)
-
-	if compressed {
+	switch kind {
+	case AIFFKind:
+		if a.IsCompressed() {
+			return nil, errors.New("compressed files cannot be written as AIFF")
+		}
+	case AIFCKind:
 		var id [4]byte
 		copy(id[:], "FVER")
 		var data [4]byte
 		binary.BigEndian.PutUint32(data[:], StandardVersion)
 		rchunks = append(rchunks, RawChunk{id, data[:]})
+	default:
+		return nil, errors.New("unknown AIFF kind")
 	}
+
 	for _, ck := range a.Chunks {
 		if _, ok := ck.(*FormatVersion); ok {
 			continue
 		}
-		id, data, err := ck.ChunkData(compressed)
+		id, data, err := ck.ChunkData(kind)
 		if err != nil {
 			return nil, err
 		}
@@ -681,7 +700,7 @@ func (a *AIFF) Write(compressed bool) ([]byte, error) {
 	header := data[0:12:12]
 	copy(header[:], "FORM")
 	binary.BigEndian.PutUint32(header[4:8], uint32(pos-8))
-	if compressed {
+	if kind == AIFCKind {
 		copy(header[8:], "AIFC")
 	} else {
 		copy(header[8:], "AIFF")

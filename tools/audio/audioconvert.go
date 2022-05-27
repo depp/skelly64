@@ -223,7 +223,7 @@ func (pcm *pcmdata) write(opts *options) error {
 		a.Chunks = append(a.Chunks, pcm.inst)
 	}
 	a.Chunks = append(a.Chunks, a.Data)
-	fdata, err := a.Write(true)
+	fdata, err := a.Write(aiff.AIFCKind)
 	if err != nil {
 		return fmt.Errorf("could not create AIFF-C data: %v", err)
 	}
