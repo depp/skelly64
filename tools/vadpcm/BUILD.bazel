@@ -5,6 +5,7 @@ go_binary(
     srcs = [
         "vadpcm.go",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         "//lib/audio/aiff",
         "//lib/audio/vadpcm",
