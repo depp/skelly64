@@ -548,6 +548,9 @@ func (c *VADPCMLoops) parseAPPL(data []byte) error {
 
 var errUnexpectedEOF = errors.New("unexpected end of file in AIFF data")
 
+// ErrNotAiff indicates that the file is not an AIFF file.
+var ErrNotAIFF = errors.New("not an AIFF file")
+
 // Parse an AIFF or AIFF-C file.
 func Parse(data []byte) (*AIFF, error) {
 	if len(data) < 12 {
@@ -563,7 +566,7 @@ func Parse(data []byte) (*AIFF, error) {
 	case "AIFC":
 		compressed = true
 	default:
-		return nil, errors.New("not an AIFF file")
+		return nil, ErrNotAIFF
 	}
 	flen := binary.BigEndian.Uint32(header[4:8])
 	if int(flen) < len(data)-8 {
