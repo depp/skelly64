@@ -86,7 +86,7 @@ var cmdDecode = cobra.Command{
 					string(a.Common.Compression[:]), vadpcm.CompressionType)}
 		}
 		var codebook *vadpcm.Codebook
-		var chunks []aiff.Chunk
+		var sdata *aiff.SoundData
 		for _, ck := range a.Chunks {
 			switch ck := ck.(type) {
 			case *aiff.VADPCMCodes:
@@ -97,8 +97,11 @@ var cmdDecode = cobra.Command{
 				if err != nil {
 					return &fileError{filein, fmt.Errorf("invalid VADPCM codebook: %v", err)}
 				}
-			default:
-				chunks = append(chunks, ck)
+			case *aiff.SoundData:
+				if sdata != nil {
+					return &fileError{filein, errors.New("file contains multiple SSND chunks")}
+				}
+				sdata = ck
 			}
 		}
 
@@ -106,11 +109,20 @@ var cmdDecode = cobra.Command{
 		if a.Common.NumChannels != 1 {
 			return &fileError{filein, fmt.Errorf("number of channels is %d, only 1-channel audio is supported", a.Common.NumChannels)}
 		}
-		vdata := a.Data.Data
 		nvframes := a.Common.NumFrames / vadpcm.FrameSampleCount
 		nframes := nvframes * vadpcm.FrameSampleCount
 		if nframes != a.Common.NumFrames {
 			logrus.Warnf("AIFF numSampleFrames is %d, which is not divisible by %d", a.Common.NumFrames, vadpcm.FrameSampleCount)
+		}
+		var vdata []byte
+		if nvframes > 0 {
+			if sdata == nil {
+				return &fileError{filein, errors.New("no SSND chunk")}
+			}
+			vdata = sdata.Data
+			if len(vdata) < nvframes*vadpcm.FrameByteSize {
+				return &fileError{filein, errors.New("SSND chunk is too short")}
+			}
 		}
 		pdata := make([]int16, nframes)
 		var state vadpcm.Vector
@@ -135,10 +147,9 @@ var cmdDecode = cobra.Command{
 			FormatVersion: aiff.FormatVersion{
 				aiff.StandardVersion,
 			},
-			Data: &aiff.SoundData{
-				Data: odata,
+			Chunks: []aiff.Chunk{
+				&aiff.SoundData{Data: odata},
 			},
-			Chunks: chunks,
 		}
 		data, err = o.Write(kind)
 		if err != nil {

@@ -211,18 +211,14 @@ func (pcm *pcmdata) write(opts *options) error {
 			Compression:     [4]byte{'N', 'O', 'N', 'E'},
 			CompressionName: "no compression",
 		},
-		Data: &aiff.SoundData{
-			Data: data,
-		},
 	}
-	a.Chunks = []aiff.Chunk{&a.Common}
 	if len(pcm.markers) != 0 {
 		a.Chunks = append(a.Chunks, &aiff.Markers{Markers: pcm.markers})
 	}
 	if pcm.inst != nil {
 		a.Chunks = append(a.Chunks, pcm.inst)
 	}
-	a.Chunks = append(a.Chunks, a.Data)
+	a.Chunks = append(a.Chunks, &aiff.SoundData{Data: data})
 	fdata, err := a.Write(aiff.AIFCKind)
 	if err != nil {
 		return fmt.Errorf("could not create AIFF-C data: %v", err)

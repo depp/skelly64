@@ -24,10 +24,9 @@ const StandardVersion = 0xA2805140
 
 // An AIFF is a decoded AIFF or AIFF-C file.
 type AIFF struct {
+	FormatVersion FormatVersion // AIFC only.
 	Common        Common
-	FormatVersion FormatVersion
-	Data          *SoundData
-	Chunks        []Chunk
+	Chunks        []Chunk // Excludes FormatVersion and Common, above.
 }
 
 // IsCompressed returns true if this is a compressed AIFF file.
@@ -178,7 +177,10 @@ func (c *FormatVersion) parseChunk(data []byte, kind Kind) error {
 // ChunkData implements the Chunk interface.
 func (c *FormatVersion) ChunkData(kind Kind) (id [4]byte, data []byte, err error) {
 	if kind != AIFCKind {
-		return id, data, errors.New("cannot write FVER to compressed file")
+		return id, data, errors.New("cannot write FVER to standard AIFF file")
+	}
+	if c.Timestamp != StandardVersion {
+		return id, data, fmt.Errorf("unknown AIFF-C version timestamp: 0x%0x", c.Timestamp)
 	}
 	copy(id[:], "FVER")
 	data = make([]byte, 4)
@@ -613,6 +615,7 @@ func Parse(data []byte) (*AIFF, error) {
 			rest = rest[1:]
 		}
 		var ck parsableChunk
+		var noAppend bool
 		switch string(ch[:4]) {
 		case "COMM":
 			if hasCommon {
@@ -620,19 +623,16 @@ func Parse(data []byte) (*AIFF, error) {
 			}
 			ck = &a.Common
 			hasCommon = true
+			noAppend = true
 		case "FVER":
 			if hasFVer {
 				return nil, errors.New("multiple format version chunks")
 			}
 			ck = &a.FormatVersion
 			hasFVer = true
+			noAppend = true
 		case "SSND":
-			if a.Data != nil {
-				return nil, errors.New("multiple sound data chunks")
-			}
-			d := new(SoundData)
-			a.Data = d
-			ck = d
+			ck = new(SoundData)
 		case "MARK":
 			ck = new(Markers)
 		case "INST":
@@ -653,39 +653,41 @@ func Parse(data []byte) (*AIFF, error) {
 		if err := ck.parseChunk(cdata, kind); err != nil {
 			return nil, fmt.Errorf("could not parse %q chunk: %w", ch[:4], err)
 		}
-		chunks = append(chunks, ck)
+		if !noAppend {
+			chunks = append(chunks, ck)
+		}
 	}
 	if !hasCommon {
 		return nil, errors.New("missing common chunk")
-	}
-	if a.Data == nil {
-		return nil, errors.New("missign data chunk")
 	}
 	a.Chunks = chunks
 	return &a, nil
 }
 
 func (a *AIFF) Write(kind Kind) ([]byte, error) {
-	rchunks := make([]RawChunk, 0, len(a.Chunks)+1)
+	rchunks := make([]RawChunk, 0, len(a.Chunks)+2)
 	switch kind {
 	case AIFFKind:
 		if a.IsCompressed() {
 			return nil, errors.New("compressed files cannot be written as AIFF")
 		}
 	case AIFCKind:
-		var id [4]byte
-		copy(id[:], "FVER")
-		var data [4]byte
-		binary.BigEndian.PutUint32(data[:], StandardVersion)
-		rchunks = append(rchunks, RawChunk{id, data[:]})
+		id, data, err := a.FormatVersion.ChunkData(kind)
+		if err != nil {
+			return nil, err
+		}
+		rchunks = append(rchunks, RawChunk{id, data})
 	default:
 		return nil, errors.New("unknown AIFF kind")
 	}
 
+	id, data, err := a.Common.ChunkData(kind)
+	if err != nil {
+		return nil, err
+	}
+	rchunks = append(rchunks, RawChunk{id, data})
+
 	for _, ck := range a.Chunks {
-		if _, ok := ck.(*FormatVersion); ok {
-			continue
-		}
 		id, data, err := ck.ChunkData(kind)
 		if err != nil {
 			return nil, err
@@ -696,7 +698,7 @@ func (a *AIFF) Write(kind Kind) ([]byte, error) {
 	for _, ck := range rchunks {
 		pos = (pos + 8 + len(ck.Data) + 1) &^ 1
 	}
-	data := make([]byte, pos)
+	data = make([]byte, pos)
 	header := data[0:12:12]
 	copy(header[:], "FORM")
 	binary.BigEndian.PutUint32(header[4:8], uint32(pos-8))
@@ -721,11 +723,25 @@ func (a *AIFF) Write(kind Kind) ([]byte, error) {
 // GetSamples16 returns the samples in an AIFF file, converted to signed-16 bit.
 // Not all conversions are supported.
 func (a *AIFF) GetSamples16() ([]int16, error) {
+	if a.Common.NumFrames == 0 {
+		// According to the spec, the data chunk is optional for empty files.
+		return nil, nil
+	}
+	var dck *SoundData
+	for _, ck := range a.Chunks {
+		if ck, ok := ck.(*SoundData); ok {
+			dck = ck
+			break
+		}
+	}
+	if dck == nil {
+		return nil, errors.New("no SSND chunk found")
+	}
 	switch string(a.Common.Compression[:]) {
 	case "NONE":
 		switch a.Common.SampleSize {
 		case 16:
-			raw := a.Data.Data
+			raw := dck.Data
 			dec := make([]int16, len(raw)/2)
 			for i := 0; i < len(dec); i++ {
 				dec[i] = int16(binary.BigEndian.Uint16(raw[i*2 : i*2+2]))
