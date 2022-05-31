@@ -451,11 +451,12 @@ func (c *VADPCMCodes) ChunkData(_ Kind) (id [4]byte, data []byte, err error) {
 		return id, data, fmt.Errorf("incorrect VADPCM table size: table has size %d, should be %d", len(c.Table), tsize)
 	}
 	adata := make([]byte, 6+2*tsize)
-	binary.BigEndian.PutUint16(adata[0:], uint16(c.Version))
-	binary.BigEndian.PutUint16(adata[2:], uint16(c.Order))
-	binary.BigEndian.PutUint16(adata[4:], uint16(c.NumEntries))
+	_ = adata[:6]
+	binary.BigEndian.PutUint16(adata[0:2], uint16(c.Version))
+	binary.BigEndian.PutUint16(adata[2:4], uint16(c.Order))
+	binary.BigEndian.PutUint16(adata[4:6], uint16(c.NumEntries))
 	for i, x := range c.Table {
-		binary.BigEndian.PutUint16(data[6+2*i:], uint16(x))
+		binary.BigEndian.PutUint16(adata[6+2*i:8+2*i], uint16(x))
 	}
 	return writeStoc("VADPCMCODES", adata)
 }

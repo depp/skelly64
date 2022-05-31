@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/depp/extended"
 	"github.com/depp/skelly64/lib/audio/aiff"
 	"github.com/depp/skelly64/lib/audio/vadpcm"
 
@@ -159,8 +160,108 @@ var cmdDecode = cobra.Command{
 	},
 }
 
+type audioData struct {
+	rate    extended.Extended
+	samples []int16
+}
+
+func readAudio(name string) (ad audioData, err error) {
+	switch ext := filepath.Ext(name); {
+	case strings.EqualFold(ext, ".aiff"):
+	case strings.EqualFold(ext, ".aifc"):
+	default:
+		return ad, fmt.Errorf("input file has unknown extension: %q", ext)
+	}
+	data, err := ioutil.ReadFile(name)
+	if err != nil {
+		return ad, err
+	}
+	a, err := aiff.Parse(data)
+	if err != nil {
+		return ad, &fileError{name, err}
+	}
+	if ad.samples, err = a.GetSamples16(); err != nil {
+		return ad, &fileError{name, err}
+	}
+	ad.rate = a.Common.SampleRate
+	return ad, nil
+}
+
+func makeCodebookChunk(codebook *vadpcm.Codebook) *aiff.VADPCMCodes {
+	table := make([]int16, vadpcm.VectorSize*codebook.Order*codebook.PredictorCount)
+	for i, v := range codebook.Vectors {
+		copy(table[i*vadpcm.VectorSize:i*vadpcm.VectorSize+vadpcm.VectorSize], v[:])
+	}
+	return &aiff.VADPCMCodes{
+		Version:    1,
+		Order:      codebook.Order,
+		NumEntries: codebook.PredictorCount,
+		Table:      table,
+	}
+}
+
+var flagPredictorCount int
+
+var cmdEncode = cobra.Command{
+	Use:   "encode <input> <output.aifc>",
+	Short: "Encode an audio file using VADPCM.",
+	Args:  cobra.ExactArgs(2),
+	RunE: func(_ *cobra.Command, args []string) error {
+		filein := args[0]
+		fileout := args[1]
+		if ext := filepath.Ext(fileout); !strings.EqualFold(ext, ".aifc") {
+			logrus.Warn("output file does not have .aifc extension")
+		}
+		if flagPredictorCount < 1 || vadpcm.MaxPredictorCount < flagPredictorCount {
+			return fmt.Errorf("parameter count is not in the range 1-16: %d", flagPredictorCount)
+		}
+
+		// Encode.
+		ad, err := readAudio(filein)
+		if err != nil {
+			return err
+		}
+		nvframes := (len(ad.samples) + vadpcm.FrameSampleCount - 1) / vadpcm.FrameSampleCount
+		nframes := nvframes * vadpcm.FrameSampleCount
+		if len(ad.samples) < nframes {
+			ad.samples = append(ad.samples, make([]int16, nframes-len(ad.samples))...)
+		}
+		codebook, vdata, err := vadpcm.Encode(&vadpcm.Parameters{
+			PredictorCount: flagPredictorCount,
+		}, ad.samples)
+		if err != nil {
+			return err
+		}
+		o := aiff.AIFF{
+			Common: aiff.Common{
+				NumChannels:     1,
+				NumFrames:       nframes,
+				SampleSize:      16,
+				SampleRate:      ad.rate,
+				Compression:     *(*[4]byte)([]byte(vadpcm.CompressionType)),
+				CompressionName: vadpcm.CompressionName,
+			},
+			FormatVersion: aiff.FormatVersion{
+				aiff.StandardVersion,
+			},
+			Chunks: []aiff.Chunk{
+				makeCodebookChunk(codebook),
+				&aiff.SoundData{Data: vdata},
+			},
+		}
+		data, err := o.Write(aiff.AIFCKind)
+		if err != nil {
+			return err
+		}
+		return ioutil.WriteFile(fileout, data, 0666)
+	},
+}
+
 func main() {
-	cmdRoot.AddCommand(&cmdDecode)
+	cmdRoot.AddCommand(&cmdDecode, &cmdEncode)
+	f := cmdEncode.Flags()
+	f.IntVar(&flagPredictorCount, "predictor-count", 4,
+		"number of VADPCM predictors, 1-16")
 	if err := cmdRoot.Execute(); err != nil {
 		logrus.Error(err)
 		os.Exit(1)

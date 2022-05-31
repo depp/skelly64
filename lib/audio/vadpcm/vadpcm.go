@@ -2,6 +2,7 @@
 package vadpcm
 
 // #include "lib/vadpcm/vadpcm.h"
+// #include <stdlib.h>
 import "C"
 
 import (
@@ -104,4 +105,55 @@ func Decode(codebook *Codebook, state *Vector, dest []int16, src []byte) (int, e
 		return 0, vadpcmerr(err)
 	}
 	return nframes, nil
+}
+
+// Parameters contains the parameters for encoding,
+type Parameters struct {
+	PredictorCount int
+}
+
+// Encode encodes audio as VADPCM.
+func Encode(params *Parameters, data []int16) (*Codebook, []byte, error) {
+	predictor_count := params.PredictorCount
+	if predictor_count < 0 {
+		return nil, nil, fmt.Errorf("invalid predictory count: %d", predictor_count)
+	}
+	if MaxPredictorCount < predictor_count {
+		return nil, nil, fmt.Errorf("predictor count is too large: %d", predictor_count)
+	}
+	nframes := len(data) / FrameSampleCount
+	nvec := predictor_count * EncodeOrder
+	if nframes == 0 {
+		return &Codebook{
+			Order:          EncodeOrder,
+			PredictorCount: predictor_count,
+			Vectors:        make([]Vector, nvec),
+		}, nil, nil
+	}
+	if predictor_count == 0 {
+		return nil, nil, errors.New("predictor count is zero")
+	}
+	cparams := C.struct_vadpcm_params{
+		predictor_count: C.int(predictor_count),
+	}
+	vecs := make([]Vector, nvec)
+	scratchsz := C.vadpcm_encode_scratch_size(C.size_t(nframes))
+	scratch := C.malloc(scratchsz)
+	defer C.free(scratch)
+	dest := make([]byte, nframes*FrameByteSize)
+	err := C.vadpcm_encode(
+		&cparams,
+		(*C.struct_vadpcm_vector)(unsafe.Pointer(&vecs[0])),
+		C.size_t(nframes),
+		unsafe.Pointer(&dest[0]),
+		(*C.int16_t)(unsafe.Pointer(&data[0])),
+		unsafe.Pointer(scratch))
+	if err != 0 {
+		return nil, nil, vadpcmerr(err)
+	}
+	return &Codebook{
+		Order:          EncodeOrder,
+		PredictorCount: predictor_count,
+		Vectors:        vecs,
+	}, dest, nil
 }
