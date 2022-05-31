@@ -42,7 +42,7 @@ func parseCodebook(ck *aiff.VADPCMCodes) (*vadpcm.Codebook, error) {
 	sz := ck.Order * ck.NumEntries
 	vectors := make([]vadpcm.Vector, sz)
 	for i := range vectors {
-		copy(vectors[i][:], ck.Table[i*8:i*8+1])
+		copy(vectors[i][:], ck.Table[i*vadpcm.VectorSize:i*vadpcm.VectorSize+vadpcm.VectorSize])
 	}
 	return &vadpcm.Codebook{
 		Order:          ck.Order,

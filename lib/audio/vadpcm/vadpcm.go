@@ -37,6 +37,9 @@ const MaxPredictorCount = C.kVADPCMMaxPredictorCount
 // change this value.
 const EncodeOrder = C.kVADPCMEncodeOrder
 
+// VectorSize is the number of elements in a VADPCM vector.
+const VectorSize = 8
+
 type vadpcmerr uint32
 
 var errtext = [...]string{
@@ -54,7 +57,7 @@ func (e vadpcmerr) Error() (s string) {
 	return "vadpcmerr(" + strconv.Itoa(int(e)) + ")"
 }
 
-type Vector [8]int16
+type Vector [VectorSize]int16
 
 type Codebook struct {
 	Order          int
